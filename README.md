@@ -1,3 +1,5 @@
+https://windshifter1.github.io/The-Raconteur-s-Commonplace/
+
 # The Raconteur's Commonplace
 
 A personal library catalogue tuned for E-Ink browsers (Kobo Clara 2E and similar): plain black-and-white, fast, and simple. Shares a Supabase database with the fuller modern UI planned separately.
