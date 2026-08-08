@@ -1,3 +1,4 @@
+// Kobo plain-HTML catalogue — server-rendered, zero client JS.
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.55.0';
 import { buildUrl, parseGenres, renderPage, slugify } from './html.ts';
 
