@@ -26,9 +26,14 @@ Live URL (after first successful deploy):
 1. Repo → **Settings → Pages**
 2. Under **Build and deployment**, set **Source** to **GitHub Actions**
 3. Repo → **Settings → Secrets and variables → Actions**
-   - **Variable** `VITE_SUPABASE_URL` = your Supabase project URL
-   - **Secret** `VITE_SUPABASE_ANON_KEY` = your publishable / anon key
+   - Prefer the **Repository** tab (not only Environment)
+   - **Variable** `VITE_SUPABASE_URL` = `https://joctuzargvajerqwxuvn.supabase.co`
+   - **Secret** `VITE_SUPABASE_ANON_KEY` = your publishable / anon key  
+     Exact names matter. No quotes around values.
 4. Push to `main` (or run the workflow manually under **Actions**)
+5. Open the Actions run and confirm **Check Supabase build env** passes
+
+If the site is blank, the build almost always lacked those env values. The workflow now fails instead of deploying an empty config.
 
 Do **not** commit `.env`. The Actions workflow injects env at build time.
 

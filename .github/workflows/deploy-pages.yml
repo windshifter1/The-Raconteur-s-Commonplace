@@ -17,6 +17,9 @@ concurrency:
 jobs:
   build:
     runs-on: ubuntu-latest
+    # Same environment as deploy so Environment secrets/vars work
+    # (common Pages mistake: secrets only under Environment "github-pages").
+    environment: github-pages
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -30,12 +33,28 @@ jobs:
       - name: Install
         run: npm ci
 
+      - name: Check Supabase build env
+        env:
+          VITE_SUPABASE_URL: ${{ vars.VITE_SUPABASE_URL || secrets.VITE_SUPABASE_URL }}
+          VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
+        run: |
+          if [ -z "$VITE_SUPABASE_URL" ] || [ -z "$VITE_SUPABASE_ANON_KEY" ]; then
+            echo "::error::Missing Supabase build env."
+            echo "Add these under Settings → Secrets and variables → Actions"
+            echo "  (Repository OR Environment 'github-pages'):"
+            echo "  - Variable or Secret: VITE_SUPABASE_URL"
+            echo "  - Secret: VITE_SUPABASE_ANON_KEY"
+            exit 1
+          fi
+          echo "Supabase URL length: ${#VITE_SUPABASE_URL}"
+          echo "Anon key length: ${#VITE_SUPABASE_ANON_KEY}"
+
       - name: Build
         env:
           # Project Pages URL path (repo name). Change if you rename the repo
           # or move this UI under a subpath like /kobo later.
           BASE_PATH: /The-Raconteur-s-Commonplace/
-          VITE_SUPABASE_URL: ${{ vars.VITE_SUPABASE_URL }}
+          VITE_SUPABASE_URL: ${{ vars.VITE_SUPABASE_URL || secrets.VITE_SUPABASE_URL }}
           VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
         run: npm run build
 

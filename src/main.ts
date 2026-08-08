@@ -5,6 +5,7 @@ import {
   deleteBook,
   fetchBooks,
   fetchShelves,
+  supabaseConfigError,
   updateBook,
 } from './supabase';
 import type {
@@ -34,6 +35,12 @@ init();
 
 async function init(): Promise<void> {
   bindGlobalEvents();
+  if (supabaseConfigError) {
+    state.loading = false;
+    state.status = supabaseConfigError;
+    render();
+    return;
+  }
   await reload();
 }
 
