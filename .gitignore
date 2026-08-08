@@ -1,7 +1,14 @@
 node_modules
 dist
+kobo-dist
 .DS_Store
 *.local
 .env
 .env.local
 .env.*.local
+modern/node_modules
+modern/dist
+.supabase-token
+supabase/functions/catalogue/html.mjs.bak
+
+.vite

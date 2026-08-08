@@ -1,53 +1,66 @@
 # The Raconteur's Commonplace
 
-A personal library catalogue tuned for E-Ink browsers (Kobo Clara 2E and similar): plain black-and-white, fast, and simple. Shares a Supabase database with the fuller modern UI planned separately.
+Personal library catalogue with **two front ends**, one Supabase database:
 
-## Local development
+| Front end | Path / URL | Audience |
+|---|---|---|
+| **Kobo / E-Ink (plain HTML)** | Edge Function + GitHub Pages gateway | Kobo Clara & ancient WebKit |
+| **Modern UI (later)** | `modern/` | Phone & desktop |
+
+## Why plain HTML for Kobo
+
+Kobo’s experimental browser is roughly **AppleWebKit 538 (~2014)**:
+
+- no ES modules (so Vite apps stay blank)
+- often **no `fetch` / `XMLHttpRequest`**
+- no flexbox / CSS grid
+- full page reloads are fine on E-Ink
+
+So the Kobo app is **server-rendered HTML** with classic **form GET/POST**. Zero client JavaScript.
+
+## Live Kobo URL (bookmark this on the device)
+
+After the Edge Function is deployed:
+
+`https://joctuzargvajerqwxuvn.supabase.co/functions/v1/catalogue`
+
+GitHub Pages serves a tiny gateway that links there, plus a static snapshot.
+
+## Deploy
+
+### 1) GitHub Pages (gateway + snapshot)
+
+Already wired: `.github/workflows/deploy-pages.yml`  
+Needs secrets/vars: `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`.
+
+### 2) Edge Function (required for live Kobo catalogue)
+
+1. Create a Supabase access token: https://supabase.com/dashboard/account/tokens  
+2. Repo → **Settings → Secrets → Actions** → add `SUPABASE_ACCESS_TOKEN`  
+3. Run workflow **Deploy Kobo catalogue Edge Function** (or push this branch)
+
+Or locally:
 
 ```bash
+npx supabase login
+npx supabase functions deploy catalogue --project-ref joctuzargvajerqwxuvn --no-verify-jwt
+```
+
+### Local static build
+
+```bash
+cp .env.example .env   # fill URL + anon key
+npm run build          # writes kobo-dist/
+```
+
+### Modern Vite app (desktop experiments)
+
+```bash
+cd modern
 npm install
-cp .env.example .env   # then fill in Supabase values
 npm run dev
 ```
 
-- `npm run build` — production build to `dist/`
-- `npm run preview` — preview the production build
+## Database
 
-## GitHub Pages
-
-This Kobo-optimised site deploys via **GitHub Actions** on every push to `main`.
-
-Live URL (after first successful deploy):
-
-`https://windshifter1.github.io/The-Raconteur-s-Commonplace/`
-
-### One-time dashboard setup
-
-1. Repo → **Settings → Pages**
-2. Under **Build and deployment**, set **Source** to **GitHub Actions**
-3. Repo → **Settings → Secrets and variables → Actions**
-   - Prefer the **Repository** tab (not only Environment)
-   - **Variable** `VITE_SUPABASE_URL` = `https://joctuzargvajerqwxuvn.supabase.co`
-   - **Secret** `VITE_SUPABASE_ANON_KEY` = your publishable / anon key  
-     Exact names matter. No quotes around values.
-4. Push to `main` (or run the workflow manually under **Actions**)
-5. Open the Actions run and confirm **Check Supabase build env** passes
-
-If the site is blank, the build almost always lacked those env values. The workflow now fails instead of deploying an empty config.
-
-Do **not** commit `.env`. The Actions workflow injects env at build time.
-
-### Why Actions (not “Deploy from a branch”)
-
-Vite needs a build step. GitHub Actions runs that build and publishes `dist/`. A branch/`docs` folder deploy would force committing build output and fights a second UI later.
-
-## Two UIs, one database (planned)
-
-| Surface | Purpose | Deploy |
-|---|---|---|
-| This app (Kobo / E-Ink) | Minimal B&W catalogue | GitHub Pages (this workflow) |
-| Future full room | Modern phone/PC UI | Separate path, site, or repo — same Supabase |
-
-Both frontends use the same Supabase project and anon key. Auth / personal shelves can be added later without splitting the database.
-
-Database schema: `supabase/migrations/`.
+Schema: `supabase/migrations/`. Same tables for both UIs.
