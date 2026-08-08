@@ -20,13 +20,16 @@ Kobo’s experimental browser is roughly **AppleWebKit 538 (~2014)**:
 
 So the Kobo app is **server-rendered HTML** with classic **form GET/POST**. Zero client JavaScript.
 
-## Live Kobo URL (bookmark this on the device)
+## URL to use (bookmark this)
 
-After the Edge Function is deployed:
+**https://windshifter1.github.io/The-Raconteur-s-Commonplace/**
 
-`https://joctuzargvajerqwxuvn.supabase.co/functions/v1/catalogue`
+That is your website. It renders correctly on PC, phone, and Kobo.
 
-GitHub Pages serves a tiny gateway that links there, plus a static snapshot.
+> Note: Supabase Edge Functions refuse to serve HTML on GET requests (they force
+> `text/plain`, which looks like “raw code”). So the live search/edit engine is
+> reached via **POST forms** from the GitHub Pages site — you do not need to open
+> the long `supabase.co/functions/...` URL yourself.
 
 ## Deploy
 

@@ -1,6 +1,7 @@
 /**
- * Plain HTML 4-friendly renderer for Kobo / ancient WebKit.
- * No JavaScript, no flexbox, no grid, no CSS variables, no webfonts.
+ * Plain HTML for Kobo / ancient WebKit.
+ * Important: Supabase Edge GET responses cannot serve HTML (forced to text/plain).
+ * All live navigation therefore uses POST forms, which keep Content-Type: text/html.
  */
 
 export function escapeHtml(value) {
@@ -16,7 +17,7 @@ export function escapeAttr(value) {
   return escapeHtml(value);
 }
 
-/** Build function URL with apikey (needed by Supabase gateway for browser navigations). */
+/** Endpoint URL with apikey query (Supabase gateway needs it). */
 export function buildUrl(actionBase, apiKey, params) {
   const parts = [];
   if (apiKey) parts.push('apikey=' + encodeURIComponent(apiKey));
@@ -30,6 +31,41 @@ export function buildUrl(actionBase, apiKey, params) {
     }
   }
   return actionBase + (parts.length ? '?' + parts.join('&') : '');
+}
+
+function postAction(actionBase, apiKey) {
+  return buildUrl(actionBase, apiKey, {});
+}
+
+/** Button styled as a link — works without JS on Kobo. */
+function postNav(actionBase, apiKey, label, fields) {
+  let inputs =
+    '<input type="hidden" name="action" value="' +
+    escapeAttr(fields.action || 'view') +
+    '">';
+  const keys = Object.keys(fields);
+  for (let i = 0; i < keys.length; i++) {
+    const k = keys[i];
+    if (k === 'action') continue;
+    const v = fields[k];
+    if (v === undefined || v === null || v === '') continue;
+    inputs +=
+      '<input type="hidden" name="' +
+      escapeAttr(k) +
+      '" value="' +
+      escapeAttr(String(v)) +
+      '">';
+  }
+  return (
+    '<form class="inline" method="post" action="' +
+    escapeAttr(postAction(actionBase, apiKey)) +
+    '">' +
+    inputs +
+    '<input class="linkbtn" type="submit" value="' +
+    escapeAttr(label) +
+    '">' +
+    '</form>'
+  );
 }
 
 function formatLabel(format) {
@@ -121,8 +157,11 @@ function css() {
     '.kicker{font-size:11px;letter-spacing:0.16em;text-transform:uppercase;margin:8px 0 0 0;}',
     '.top{width:100%;margin-bottom:14px;border-bottom:1px solid #000;padding-bottom:12px;}',
     '.top td{padding:0;}',
-    '.nav a{margin-left:14px;}',
+    '.nav .inline{display:inline;margin-left:14px;}',
     '.btn{display:inline-block;border:1px solid #000;padding:6px 12px;text-decoration:none;background:#fff;color:#000;}',
+    'input.btn{font:inherit;cursor:pointer;}',
+    '.linkbtn{background:none;border:0;padding:0;margin:0;color:#000;text-decoration:underline;font:inherit;cursor:pointer;}',
+    'form.inline{display:inline;margin:0;padding:0;}',
     '.layout{width:100%;}',
     '.sidebar{width:210px;padding:18px 16px 0 0;border-right:1px solid #000;}',
     '.main{padding:18px 0 0 18px;}',
@@ -137,9 +176,7 @@ function css() {
     '.lead{font-family:Georgia,"Times New Roman",serif;font-size:16px;margin:0 0 12px 0;}',
     '.stats span{margin-right:16px;}',
     '.tools{width:100%;margin:0 0 18px 0;}',
-    '.tools input,.tools select,input[type=text],input[type=search],select,textarea{',
-    'width:95%;border:1px solid #000;background:#fff;color:#000;padding:8px;font-size:15px;',
-    'font-family:Arial,Helvetica,sans-serif;}',
+    '.tools input,.tools select,input[type=text],input[type=search],select,textarea{width:95%;border:1px solid #000;background:#fff;color:#000;padding:8px;font-size:15px;font-family:Arial,Helvetica,sans-serif;}',
     'textarea{height:70px;}',
     '.section-head{width:100%;margin:22px 0 4px 0;}',
     '.section-head h3{font-size:24px;}',
@@ -149,7 +186,6 @@ function css() {
     '.books .title{font-family:Georgia,"Times New Roman",serif;}',
     '.books .fmt{font-size:11px;letter-spacing:0.08em;text-transform:uppercase;font-weight:bold;white-space:nowrap;}',
     '.books .actions{white-space:nowrap;}',
-    '.books .actions a,.books .actions form{display:inline;}',
     '.status{border:1px solid #000;padding:8px 10px;margin:0 0 14px 0;}',
     '.panel{border-top:1px solid #000;border-bottom:1px solid #000;padding:14px 0;margin:0 0 18px 0;}',
     '.panel h3{font-size:22px;margin:0 0 12px 0;}',
@@ -169,11 +205,13 @@ function bookRows(books, actionBase, apiKey) {
     const b = books[i];
     html += '<tr>';
     html +=
-      '<td class="title"><a href="' +
-      escapeAttr(buildUrl(actionBase, apiKey, { view: 'book', id: b.id })) +
-      '">' +
-      escapeHtml(b.title) +
-      '</a></td>';
+      '<td class="title">' +
+      postNav(actionBase, apiKey, b.title, {
+        action: 'view',
+        view: 'book',
+        id: b.id,
+      }) +
+      '</td>';
     html += '<td>' + escapeHtml(b.author) + '</td>';
     html +=
       '<td class="fmt">' +
@@ -181,17 +219,17 @@ function bookRows(books, actionBase, apiKey) {
       (b.is_digital ? '<br>Digital edition' : '') +
       '</td>';
     html += '<td class="actions">';
-    html +=
-      '<a href="' +
-      escapeAttr(buildUrl(actionBase, apiKey, { view: 'edit-book', id: b.id })) +
-      '">Edit</a>';
+    html += postNav(actionBase, apiKey, 'Edit', {
+      action: 'view',
+      view: 'edit-book',
+      id: b.id,
+    });
     html += ' &nbsp; ';
-    html +=
-      '<a href="' +
-      escapeAttr(
-        buildUrl(actionBase, apiKey, { view: 'confirm-delete', id: b.id })
-      ) +
-      '">Delete</a>';
+    html += postNav(actionBase, apiKey, 'Delete', {
+      action: 'view',
+      view: 'confirm-delete',
+      id: b.id,
+    });
     html += '</td></tr>';
   }
   return html;
@@ -204,15 +242,14 @@ function shelfList(shelves, books, activeShelfId, actionBase, apiKey, query, sor
   html +=
     '<td' +
     (activeShelfId ? '' : ' class="active"') +
-    '><a href="' +
-    escapeAttr(
-      buildUrl(actionBase, apiKey, {
-        view: 'catalogue',
-        q: query || undefined,
-        sort: sort !== 'recent' ? sort : undefined,
-      })
-    ) +
-    '">All books</a></td>';
+    '>' +
+    postNav(actionBase, apiKey, 'All books', {
+      action: 'view',
+      view: 'catalogue',
+      q: query || undefined,
+      sort: sort !== 'recent' ? sort : undefined,
+    }) +
+    '</td>';
   html += '<td class="count">' + books.length + '</td></tr></table>';
   for (let i = 0; i < shelves.length; i++) {
     const shelf = shelves[i];
@@ -221,38 +258,33 @@ function shelfList(shelves, books, activeShelfId, actionBase, apiKey, query, sor
     html +=
       '<td' +
       (active ? ' class="active"' : '') +
-      '><a href="' +
-      escapeAttr(
-        buildUrl(actionBase, apiKey, {
-          view: 'catalogue',
-          shelf: shelf.id,
-          q: query || undefined,
-          sort: sort !== 'recent' ? sort : undefined,
-        })
-      ) +
-      '">' +
-      escapeHtml(shelf.name) +
-      '</a></td>';
+      '>' +
+      postNav(actionBase, apiKey, shelf.name, {
+        action: 'view',
+        view: 'catalogue',
+        shelf: shelf.id,
+        q: query || undefined,
+        sort: sort !== 'recent' ? sort : undefined,
+      }) +
+      '</td>';
     html += '<td class="count">' + (counts[shelf.id] || 0) + '</td></tr></table>';
   }
   html += '<hr class="rule">';
-  html +=
-    '<a href="' +
-    escapeAttr(buildUrl(actionBase, apiKey, { view: 'add-shelf' })) +
-    '">Add a shelf</a>';
+  html += postNav(actionBase, apiKey, 'Add a shelf', {
+    action: 'view',
+    view: 'add-shelf',
+  });
   return html;
 }
 
 function renderPanel(view, data, actionBase, apiKey) {
   const shelves = data.shelves;
-  const postAction = buildUrl(actionBase, apiKey, {});
-  const catalogueHref = buildUrl(actionBase, apiKey, { view: 'catalogue' });
+  const endpoint = postAction(actionBase, apiKey);
 
   if (view === 'add-book' || view === 'edit-book') {
     const book = data.editBook || null;
     const title = book ? 'Edit book' : 'Add book';
-    let shelfOpts =
-      '<option value="">Unshelved</option>';
+    let shelfOpts = '<option value="">Unshelved</option>';
     for (let i = 0; i < shelves.length; i++) {
       const sel = book && book.shelf_id === shelves[i].id ? ' selected' : '';
       shelfOpts +=
@@ -270,20 +302,14 @@ function renderPanel(view, data, actionBase, apiKey) {
       const f = formats[i];
       const sel = (book ? book.format : 'paperback') === f ? ' selected' : '';
       formatOpts +=
-        '<option value="' +
-        f +
-        '"' +
-        sel +
-        '>' +
-        formatLabel(f) +
-        '</option>';
+        '<option value="' + f + '"' + sel + '>' + formatLabel(f) + '</option>';
     }
     return (
       '<div class="panel"><h3>' +
       escapeHtml(title) +
       '</h3>' +
       '<form method="post" action="' +
-      escapeAttr(postAction) +
+      escapeAttr(endpoint) +
       '">' +
       '<input type="hidden" name="action" value="' +
       (book ? 'update-book' : 'create-book') +
@@ -316,10 +342,9 @@ function renderPanel(view, data, actionBase, apiKey) {
       '</table>' +
       '<p><input class="btn" type="submit" value="' +
       (book ? 'Save changes' : 'Save book') +
-      '"> &nbsp; <a href="' +
-      escapeAttr(catalogueHref) +
-      '">Cancel</a></p>' +
-      '</form></div>'
+      '"> &nbsp; ' +
+      postNav(actionBase, apiKey, 'Cancel', { action: 'view', view: 'catalogue' }) +
+      '</p></form></div>'
     );
   }
 
@@ -327,15 +352,14 @@ function renderPanel(view, data, actionBase, apiKey) {
     return (
       '<div class="panel"><h3>Add a shelf</h3>' +
       '<form method="post" action="' +
-      escapeAttr(postAction) +
+      escapeAttr(endpoint) +
       '">' +
       '<input type="hidden" name="action" value="create-shelf">' +
       '<table class="form" width="100%"><tr><td><div class="lbl">Shelf name</div>' +
       '<input type="text" name="name"></td></tr></table>' +
-      '<p><input class="btn" type="submit" value="Save shelf"> &nbsp; <a href="' +
-      escapeAttr(catalogueHref) +
-      '">Cancel</a></p>' +
-      '</form></div>'
+      '<p><input class="btn" type="submit" value="Save shelf"> &nbsp; ' +
+      postNav(actionBase, apiKey, 'Cancel', { action: 'view', view: 'catalogue' }) +
+      '</p></form></div>'
     );
   }
 
@@ -349,45 +373,36 @@ function renderPanel(view, data, actionBase, apiKey) {
       escapeHtml(book.author) +
       '?</p>' +
       '<form method="post" action="' +
-      escapeAttr(postAction) +
+      escapeAttr(endpoint) +
       '">' +
       '<input type="hidden" name="action" value="delete-book">' +
       '<input type="hidden" name="id" value="' +
       escapeAttr(book.id) +
       '">' +
-      '<p><input class="btn" type="submit" value="Yes, delete"> &nbsp; <a href="' +
-      escapeAttr(catalogueHref) +
-      '">Cancel</a></p>' +
-      '</form></div>'
+      '<p><input class="btn" type="submit" value="Yes, delete"> &nbsp; ' +
+      postNav(actionBase, apiKey, 'Cancel', { action: 'view', view: 'catalogue' }) +
+      '</p></form></div>'
     );
   }
 
   return '';
 }
 
-/**
- * @param {object} opts
- * @param {object[]} opts.shelves
- * @param {object[]} opts.books
- * @param {string} opts.actionBase URL that handles GET views + POST actions
- * @param {string} [opts.view]
- * @param {string|null} [opts.shelfId]
- * @param {string} [opts.query]
- * @param {string} [opts.sort]
- * @param {string|null} [opts.status]
- * @param {object|null} [opts.editBook]
- * @param {boolean} [opts.staticMode] if true, POST forms still point at actionBase (edge fn)
- */
 export function renderPage(opts) {
   const actionBase = opts.actionBase;
   const apiKey = opts.apiKey || '';
+  const pagesHome = opts.pagesHome || '';
   const view = opts.view || 'catalogue';
   const shelfId = opts.shelfId || null;
   const query = opts.query || '';
   const sort = opts.sort || 'recent';
   const shelves = opts.shelves || [];
   const books = opts.books || [];
-  const filtered = filterBooks(books, { shelfId: shelfId, query: query, sort: sort });
+  const filtered = filterBooks(books, {
+    shelfId: shelfId,
+    query: query,
+    sort: sort,
+  });
   const recent = sortBooks(books, 'recent').slice(0, 5);
   const genreCount = uniqueGenreCount(books);
   let shelfLabel = 'All books';
@@ -401,6 +416,7 @@ export function renderPage(opts) {
   }
 
   const showRecent = !shelfId && !query && view === 'catalogue';
+  const endpoint = postAction(actionBase, apiKey);
 
   let html = '';
   html += '<!DOCTYPE html>\n';
@@ -417,18 +433,25 @@ export function renderPage(opts) {
   html +=
     '<td><h1 class="brand">The Raconteur&#39;s Commonplace</h1>' +
     '<p class="kicker">Personal library / catalogue</p></td>';
+  html += '<td align="right" class="nav">';
+  html += postNav(actionBase, apiKey, 'Catalogue', {
+    action: 'view',
+    view: 'catalogue',
+  });
+  html += postNav(actionBase, apiKey, 'Enter the full room', {
+    action: 'view',
+    view: 'room',
+  });
+  html += ' &nbsp; ';
   html +=
-    '<td align="right" class="nav">' +
-    '<a href="' +
-    escapeAttr(buildUrl(actionBase, apiKey, { view: 'catalogue' })) +
-    '">Catalogue</a>' +
-    '<a href="' +
-    escapeAttr(buildUrl(actionBase, apiKey, { view: 'room' })) +
-    '">Enter the full room</a> &nbsp; ' +
-    '<a class="btn" href="' +
-    escapeAttr(buildUrl(actionBase, apiKey, { view: 'add-book' })) +
-    '">Add book</a>' +
-    '</td></tr></table>\n';
+    '<form class="inline" method="post" action="' +
+    escapeAttr(endpoint) +
+    '">' +
+    '<input type="hidden" name="action" value="view">' +
+    '<input type="hidden" name="view" value="add-book">' +
+    '<input class="btn" type="submit" value="Add book">' +
+    '</form>';
+  html += '</td></tr></table>\n';
 
   html += '<table class="layout" width="100%"><tr>\n';
   html += '<td class="sidebar">';
@@ -438,8 +461,7 @@ export function renderPage(opts) {
 
   html += '<td class="main">';
   if (opts.status) {
-    html +=
-      '<div class="status">' + escapeHtml(opts.status) + '</div>';
+    html += '<div class="status">' + escapeHtml(opts.status) + '</div>';
   }
 
   html += renderPanel(
@@ -470,13 +492,25 @@ export function renderPage(opts) {
     if (b.keywords) {
       html += '<p>Keywords: ' + escapeHtml(b.keywords) + '</p>';
     }
-    html +=
-      '<p><a href="' +
-      escapeAttr(buildUrl(actionBase, apiKey, { view: 'edit-book', id: b.id })) +
-      '">Edit</a> · <a href="' +
-      escapeAttr(buildUrl(actionBase, apiKey, { view: 'catalogue' })) +
-      '">Back to catalogue</a></p>';
-  } else {
+    html += '<p>';
+    html += postNav(actionBase, apiKey, 'Edit', {
+      action: 'view',
+      view: 'edit-book',
+      id: b.id,
+    });
+    html += ' · ';
+    html += postNav(actionBase, apiKey, 'Back to catalogue', {
+      action: 'view',
+      view: 'catalogue',
+    });
+    html += '</p>';
+  } else if (
+    view === 'catalogue' ||
+    view === 'add-book' ||
+    view === 'edit-book' ||
+    view === 'add-shelf' ||
+    view === 'confirm-delete'
+  ) {
     html += '<p class="label">Catalogue</p>';
     html += '<h2 class="hero">A life in books.</h2>';
     html +=
@@ -492,13 +526,8 @@ export function renderPage(opts) {
     html += '<hr class="rule-thick">';
 
     html +=
-      '<form method="get" action="' + escapeAttr(actionBase) + '">';
-    if (apiKey) {
-      html +=
-        '<input type="hidden" name="apikey" value="' +
-        escapeAttr(apiKey) +
-        '">';
-    }
+      '<form method="post" action="' + escapeAttr(endpoint) + '">';
+    html += '<input type="hidden" name="action" value="view">';
     html += '<input type="hidden" name="view" value="catalogue">';
     if (shelfId) {
       html +=
@@ -554,7 +583,15 @@ export function renderPage(opts) {
   }
 
   html +=
-    '<p class="footer-note">Plain HTML for E-Ink. No scripts. Form submits reload the page.</p>';
+    '<p class="footer-note">Plain HTML for E-Ink. No scripts. Forms use POST (required by the host).</p>';
+  if (pagesHome) {
+    html +=
+      '<p class="footer-note">Home page: <a href="' +
+      escapeAttr(pagesHome) +
+      '">' +
+      escapeHtml(pagesHome) +
+      '</a></p>';
+  }
   html += '</td></tr></table>\n';
   html += '</div>\n</body>\n</html>';
   return html;

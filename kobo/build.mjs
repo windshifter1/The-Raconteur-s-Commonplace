@@ -53,38 +53,47 @@ const liveUrl =
 
 // Primary Pages entry: full zero-JS catalogue snapshot (loads on Kobo even
 // before the Edge Function is deployed). Interactive links post to the live function.
+const pagesHome =
+  process.env.PAGES_HOME ||
+  'https://windshifter1.github.io/The-Raconteur-s-Commonplace/';
+
 const catalogueHtml = renderPage({
   shelves,
   books,
   actionBase: functionBase,
   apiKey: supabaseKey,
+  pagesHome,
   view: 'catalogue',
   shelfId: null,
   query: '',
   sort: 'recent',
-  status:
-    'E-Ink snapshot (no JavaScript). Tap Live for search/add/edit once the catalogue service is deployed.',
+  status: null,
 });
 writeFileSync(join(outDir, 'index.html'), catalogueHtml, 'utf8');
 
+// POST entry — Supabase cannot serve HTML on GET (shows as raw source).
 const gateway = `<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Live catalogue link</title>
+<title>Open live catalogue</title>
 <style type="text/css">
 body{margin:0;padding:24px;background:#fff;color:#000;font-family:Georgia,"Times New Roman",serif;}
 a{color:#000;}
-.btn{display:inline-block;border:1px solid #000;padding:10px 16px;text-decoration:none;}
+.btn{display:inline-block;border:1px solid #000;padding:10px 16px;background:#fff;font:inherit;cursor:pointer;}
 p{font-family:Arial,Helvetica,sans-serif;font-size:16px;}
 </style>
 </head>
 <body>
 <h1>The Raconteur&#39;s Commonplace</h1>
-<p>Bookmark this live catalogue on your Kobo (plain HTML, no JavaScript):</p>
-<p><a class="btn" href="${liveUrl}">Open live catalogue</a></p>
-<p><a href="./">Back to snapshot</a></p>
+<p>Your normal site is the GitHub Pages address. Use this button only if you need the live search/edit server.</p>
+<form method="post" action="${liveUrl}">
+<input type="hidden" name="action" value="view">
+<input type="hidden" name="view" value="catalogue">
+<p><input class="btn" type="submit" value="Open live catalogue"></p>
+</form>
+<p><a href="./">Back to site home</a></p>
 </body>
 </html>
 `;
