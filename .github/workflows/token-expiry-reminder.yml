@@ -1,0 +1,85 @@
+name: Supabase token expiry reminder
+
+on:
+  schedule:
+    # Daily at 09:00 UTC — checks if token expires in 7 days
+    - cron: '0 9 * * *'
+  workflow_dispatch:
+
+jobs:
+  remind:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check expiry window
+        id: check
+        env:
+          EXPIRY: ${{ vars.SUPABASE_TOKEN_EXPIRY || '2027-01-01' }}
+          WARN_DAYS: ${{ vars.TOKEN_EXPIRY_WARN_DAYS || '7' }}
+        run: |
+          set -euo pipefail
+          today=$(date -u +%F)
+          expiry="$EXPIRY"
+          warn_days="$WARN_DAYS"
+
+          today_epoch=$(date -u -d "$today" +%s)
+          expiry_epoch=$(date -u -d "$expiry" +%s)
+          days_left=$(( (expiry_epoch - today_epoch) / 86400 ))
+
+          echo "Today (UTC): $today"
+          echo "Token expiry: $expiry"
+          echo "Days left: $days_left"
+          echo "Warn when days left equals: $warn_days"
+
+          if [ "$days_left" -eq "$warn_days" ]; then
+            echo "send=true" >> "$GITHUB_OUTPUT"
+            echo "days_left=$days_left" >> "$GITHUB_OUTPUT"
+          else
+            echo "send=false" >> "$GITHUB_OUTPUT"
+            echo "days_left=$days_left" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Send reminder email
+        if: steps.check.outputs.send == 'true'
+        env:
+          SMTP_SERVER: ${{ secrets.SMTP_SERVER }}
+          SMTP_USERNAME: ${{ secrets.SMTP_USERNAME }}
+          SMTP_PASSWORD: ${{ secrets.SMTP_PASSWORD }}
+        run: |
+          if [ -z "$SMTP_SERVER" ] || [ -z "$SMTP_USERNAME" ] || [ -z "$SMTP_PASSWORD" ]; then
+            echo "::error::SMTP secrets missing. Add SMTP_SERVER, SMTP_USERNAME, SMTP_PASSWORD to send expiry emails."
+            exit 1
+          fi
+
+      - name: Mail reminder
+        if: steps.check.outputs.send == 'true'
+        uses: dawidd6/action-send-mail@v3
+        with:
+          server_address: ${{ secrets.SMTP_SERVER }}
+          server_port: ${{ secrets.SMTP_PORT || 587 }}
+          username: ${{ secrets.SMTP_USERNAME }}
+          password: ${{ secrets.SMTP_PASSWORD }}
+          subject: Supabase deploy token expires in 7 days
+          to: ${{ vars.NOTIFY_EMAIL || 'yusuf@ilhaam.com' }}
+          from: ${{ secrets.SMTP_FROM || secrets.SMTP_USERNAME }}
+          html_body: |
+            <p>Hello,</p>
+            <p>Your Supabase personal access token for <strong>The Raconteur's Commonplace</strong>
+            GitHub Actions deploys expires on <strong>${{ vars.SUPABASE_TOKEN_EXPIRY || '2027-01-01' }}</strong>
+            (7 days from today).</p>
+            <p>Before it expires:</p>
+            <ol>
+              <li>Create a new token at
+                <a href="https://supabase.com/dashboard/account/tokens">supabase.com/dashboard/account/tokens</a>
+              </li>
+              <li>Update the GitHub repo secret <code>SUPABASE_ACCESS_TOKEN</code></li>
+              <li>Update repo variable <code>SUPABASE_TOKEN_EXPIRY</code> to the new expiry date</li>
+              <li>Re-run <strong>Deploy Kobo catalogue Edge Function</strong> to confirm</li>
+            </ol>
+            <p>Repo:
+              <a href="https://github.com/windshifter1/The-Raconteur-s-Commonplace">The-Raconteur-s-Commonplace</a>
+            </p>
+
+      - name: No email needed today
+        if: steps.check.outputs.send != 'true'
+        run: |
+          echo "No reminder today (${{ steps.check.outputs.days_left }} days left until expiry)."

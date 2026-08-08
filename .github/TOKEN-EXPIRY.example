@@ -1,0 +1,8 @@
+# Token expiry for deploy reminder emails (YYYY-MM-DD)
+SUPABASE_TOKEN_EXPIRY=2027-01-01
+
+# Who receives expiry reminders
+NOTIFY_EMAIL=yusuf@ilhaam.com
+
+# Days before expiry to send the reminder
+TOKEN_EXPIRY_WARN_DAYS=7

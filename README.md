@@ -36,8 +36,34 @@ Needs secrets/vars: `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`.
 ### 2) Edge Function (required for live Kobo catalogue)
 
 1. Create a Supabase access token: https://supabase.com/dashboard/account/tokens  
-2. Repo → **Settings → Secrets → Actions** → add `SUPABASE_ACCESS_TOKEN`  
-3. Run workflow **Deploy Kobo catalogue Edge Function** (or push this branch)
+   - **Name** (in Supabase): anything you like, e.g. `GitHub Actions deploy`  
+   - **Expiry**: note the date; set GitHub variable `SUPABASE_TOKEN_EXPIRY` to match (e.g. `2027-01-01`)
+2. Repo → **Settings → Secrets and variables → Actions → Repository secrets**  
+   - Name must be exactly: **`SUPABASE_ACCESS_TOKEN`** (paste the token value)
+3. Run workflow **Deploy Kobo catalogue Edge Function** (Actions tab → Run workflow)
+
+The workflow now **fails** if the secret is missing or the function does not respond.
+
+### 3) Token expiry email (7 days before)
+
+Add these **Repository secrets** for SMTP (e.g. your `ilhaam.com` mail or Gmail app password):
+
+| Secret | Example |
+|---|---|
+| `SMTP_SERVER` | `smtp.gmail.com` or `mail.ilhaam.com` |
+| `SMTP_PORT` | `587` |
+| `SMTP_USERNAME` | your sending address |
+| `SMTP_PASSWORD` | app password |
+| `SMTP_FROM` | (optional) same as username |
+
+Add **Repository variables**:
+
+| Variable | Value |
+|---|---|
+| `SUPABASE_TOKEN_EXPIRY` | `2027-01-01` |
+| `NOTIFY_EMAIL` | `yusuf@ilhaam.com` |
+
+Workflow **Supabase token expiry reminder** runs daily and emails you when expiry is exactly 7 days away.
 
 Or locally:
 
