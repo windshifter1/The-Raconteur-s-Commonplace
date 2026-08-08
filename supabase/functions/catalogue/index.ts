@@ -11,24 +11,28 @@ const supabase = createClient(supabaseUrl, serviceKey, {
 });
 
 function htmlResponse(body: string, status = 200): Response {
-  return new Response(body, {
+  // Supabase Edge can coerce plain strings to text/plain; Blob + Headers
+  // keeps browsers rendering HTML instead of showing source as raw code.
+  const headers = new Headers();
+  headers.set('content-type', 'text/html; charset=utf-8');
+  headers.set('cache-control', 'no-store');
+  return new Response(new Blob([body], { type: 'text/html; charset=utf-8' }), {
     status,
-    headers: {
-      'Content-Type': 'text/html; charset=utf-8',
-      'Cache-Control': 'no-store',
-    },
+    headers,
   });
 }
 
 function redirect(location: string): Response {
-  return new Response('Redirecting…', {
-    status: 303,
-    headers: {
-      Location: location,
-      'Cache-Control': 'no-store',
-      'Content-Type': 'text/html; charset=utf-8',
-    },
-  });
+  const headers = new Headers();
+  headers.set('location', location);
+  headers.set('cache-control', 'no-store');
+  headers.set('content-type', 'text/html; charset=utf-8');
+  return new Response(
+    new Blob(['<!DOCTYPE html><html><body><p>Redirecting…</p></body></html>'], {
+      type: 'text/html; charset=utf-8',
+    }),
+    { status: 303, headers },
+  );
 }
 
 async function loadData() {
