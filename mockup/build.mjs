@@ -1,4 +1,4 @@
-import { cpSync, mkdirSync, writeFileSync } from 'node:fs';
+import { cpSync, mkdirSync, writeFileSync, readdirSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -11,14 +11,16 @@ function copyMockup(name) {
   const src = join(root, name);
   const out = join(dist, name);
   mkdirSync(out, { recursive: true });
-  cpSync(join(src, 'index.html'), join(out, 'index.html'));
-  cpSync(join(src, 'styles.css'), join(out, 'styles.css'));
+  for (const file of readdirSync(src)) {
+    cpSync(join(src, file), join(out, file));
+  }
   console.log('Wrote kobo-dist/' + name + '/');
 }
 
 copyMockup('mockup1');
 copyMockup('mockup2');
 copyMockup('mockup3');
+copyMockup('mockup4');
 
 const hubOut = join(dist, 'mockup');
 mkdirSync(hubOut, { recursive: true });
@@ -46,6 +48,7 @@ span{display:block;font-size:.9rem;opacity:.7;margin-top:.2rem}
 <a href="${base}/mockup1/">Mockup 1 <span>Cozy &amp; stylized catalogue</span></a>
 <a href="${base}/mockup2/">Mockup 2 <span>Pixel-art library room</span></a>
 <a href="${base}/mockup3/">Mockup 3 <span>Soft shelves (storybook-inspired)</span></a>
+<a href="${base}/mockup4/">Mockup 4 <span>Exact room plate + vector twin</span></a>
 </main>
 </body>
 </html>
