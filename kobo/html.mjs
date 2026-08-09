@@ -192,7 +192,11 @@ function css() {
     'table{border-collapse:collapse;width:100%;}',
     'td{vertical-align:top;}',
     '.page{width:94%;max-width:820px;margin:0 auto;padding:18px 10px 36px 10px;}',
-    '.brand{font-size:28px;line-height:1.1;margin:0 0 18px 0;}',
+    '.top{width:100%;margin:0 0 14px 0;border-bottom:1px solid #000;padding-bottom:14px;}',
+    '.top td{vertical-align:middle;padding:0;}',
+    '.brand{font-size:28px;line-height:1.1;margin:0;}',
+    '.kicker{font-size:11px;letter-spacing:0.14em;text-transform:uppercase;margin:8px 0 0 0;}',
+    '.btn-full{border:2px solid #000;background:#000;color:#fff;padding:12px 16px;font-size:15px;font-family:Georgia,"Times New Roman",serif;cursor:pointer;white-space:nowrap;}',
     '.nav{width:100%;margin:0 0 16px 0;}',
     '.nav td{padding:0 6px 0 0;width:33%;}',
     '.navbtn{display:block;width:100%;border:2px solid #000;background:#fff;color:#000;padding:16px 6px;font-size:18px;font-family:Georgia,"Times New Roman",serif;cursor:pointer;}',
@@ -218,6 +222,28 @@ function css() {
     '.card .meta{margin:0 0 12px 0;font-size:15px;}',
     '.card .desc{margin:0;}',
   ].join('');
+}
+
+function siteHeader(opts) {
+  const actionBase = opts.actionBase;
+  const apiKey = opts.apiKey || '';
+  return (
+    '<table class="top"><tr>' +
+    '<td>' +
+    '<h1 class="brand">The Raconteur&#39;s Commonplace</h1>' +
+    '<p class="kicker">Personal Library Catalogue</p>' +
+    '</td>' +
+    '<td align="right">' +
+    '<form class="inline" method="post" action="' +
+    escapeAttr(formAction(actionBase, apiKey)) +
+    '">' +
+    '<input type="hidden" name="action" value="view">' +
+    '<input type="hidden" name="view" value="browse">' +
+    '<input class="btn-full" type="submit" value="Full Experience">' +
+    '</form>' +
+    '</td>' +
+    '</tr></table>\n'
+  );
 }
 
 function mainNav(opts, active) {
@@ -261,7 +287,7 @@ function shellStart(opts, title, active, showNav) {
   html += '<title>' + escapeHtml(title) + '</title>\n';
   html += '<style type="text/css">' + css() + '</style>\n';
   html += '</head>\n<body>\n<div class="page">\n';
-  html += '<h1 class="brand">The Raconteur&#39;s Commonplace</h1>\n';
+  html += siteHeader(opts);
   if (showNav !== false) {
     html += mainNav(opts, active);
   }
