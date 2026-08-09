@@ -1,74 +1,47 @@
-https://windshifter1.github.io/The-Raconteur-s-Commonplace/
-
 # The Raconteur's Commonplace
 
-Personal library catalogue with **two front ends**, one Supabase database:
+Plain HTML personal library catalogue for E-Ink (Kobo) and simple browsers.
 
-| Front end | Path / URL | Audience |
-|---|---|---|
-| **Kobo / E-Ink (plain HTML)** | Edge Function + GitHub Pages gateway | Kobo Clara & ancient WebKit |
-| **Modern UI (later)** | `modern/` | Phone & desktop |
+## Site map
 
-## Why plain HTML for Kobo
+| Page | Purpose |
+|---|---|
+| **Home** | Two large choices: Find a Book / Browse Library |
+| **Find a Book** | Search title, author, genre, keywords, publisher, ISBN |
+| **Browse Library** | Filter by first letter & genre; sort by title, author, genre |
+| **Book record** | Title card with description, availability, shelf, and details |
 
-Kobo’s experimental browser is roughly **AppleWebKit 538 (~2014)**:
+Empty searches show a clear “No books found” message — never an error page.
 
-- no ES modules (so Vite apps stay blank)
-- often **no `fetch` / `XMLHttpRequest`**
-- no flexbox / CSS grid
-- full page reloads are fine on E-Ink
-
-So the Kobo app is **server-rendered HTML** with classic **form GET/POST**. Zero client JavaScript.
-
-## URL to use (bookmark this)
+## URL
 
 **https://windshifter1.github.io/The-Raconteur-s-Commonplace/**
 
-That is your website. It renders correctly on PC, phone, and Kobo.
-
-> Note: Supabase Edge Functions refuse to serve HTML on GET requests (they force
-> `text/plain`, which looks like “raw code”). So the live search/edit engine is
-> reached via **POST forms** from the GitHub Pages site — you do not need to open
-> the long `supabase.co/functions/...` URL yourself.
+Interactive Find / Browse / Book views POST to a Supabase Edge Function (Supabase cannot serve HTML on GET).
 
 ## Deploy
 
-### 1) GitHub Pages (gateway + snapshot)
+### GitHub Pages
 
-Already wired: `.github/workflows/deploy-pages.yml`  
-Needs secrets/vars: `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`.
+`.github/workflows/deploy-pages.yml`  
+Secrets/vars: `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`
 
-### 2) Edge Function (required for live Kobo catalogue)
+### Edge Function
 
-1. Create a Supabase access token: https://supabase.com/dashboard/account/tokens  
-2. Repo → **Settings → Secrets and variables → Actions → Repository secrets**  
-   - Name must be exactly: **`SUPABASE_ACCESS_TOKEN`**
-3. Run workflow **Deploy Kobo catalogue Edge Function** (Actions tab → Run workflow)
-
-The workflow **fails** if the secret is missing or the function does not respond.
-
-Or locally:
+Secret: `SUPABASE_ACCESS_TOKEN`  
+Workflow: **Deploy Kobo catalogue Edge Function**
 
 ```bash
-npx supabase login
 npx supabase functions deploy catalogue --project-ref joctuzargvajerqwxuvn --no-verify-jwt
 ```
 
-### Local static build
+### Local build
 
 ```bash
-cp .env.example .env   # fill URL + anon key
-npm run build          # writes kobo-dist/
-```
-
-### Modern Vite app (desktop experiments)
-
-```bash
-cd modern
-npm install
-npm run dev
+cp .env.example .env
+npm run build   # writes kobo-dist/
 ```
 
 ## Database
 
-Schema: `supabase/migrations/`. Same tables for both UIs.
+Migrations in `supabase/migrations/`.

@@ -42,7 +42,7 @@ async function loadData() {
   const booksRes = await supabase
     .from('books')
     .select('*')
-    .order('created_at', { ascending: false });
+    .order('title', { ascending: true });
   if (booksRes.error) throw booksRes.error;
 
   return {
@@ -52,6 +52,7 @@ async function loadData() {
 }
 
 async function findBook(id: string) {
+  if (!id) return null;
   const { data, error } = await supabase
     .from('books')
     .select('*')
@@ -64,33 +65,21 @@ async function findBook(id: string) {
 async function renderView(opts: {
   actionBase: string;
   view: string;
-  shelfId?: string | null;
   query?: string;
+  letter?: string;
+  genre?: string;
   sort?: string;
+  searched?: boolean;
   status?: string | null;
   id?: string | null;
   httpStatus?: number;
 }) {
   const { shelves, books } = await loadData();
+  const view = opts.view || 'home';
   let editBook = null;
-  const view = opts.view || 'catalogue';
-  const id = opts.id || null;
-  if (id && (view === 'edit-book' || view === 'confirm-delete' || view === 'book')) {
-    editBook = await findBook(id);
-    if (!editBook) {
-      return htmlResponse(
-        renderPage({
-          shelves,
-          books,
-          actionBase: opts.actionBase,
-          apiKey: anonKey,
-          pagesHome,
-          view: 'catalogue',
-          status: 'That book was not found.',
-        }),
-        404,
-      );
-    }
+
+  if (view === 'book') {
+    editBook = await findBook(opts.id || '');
   }
 
   return htmlResponse(
@@ -101,9 +90,11 @@ async function renderView(opts: {
       apiKey: anonKey,
       pagesHome,
       view,
-      shelfId: opts.shelfId || null,
       query: opts.query || '',
-      sort: opts.sort || 'recent',
+      letter: opts.letter || '',
+      genre: opts.genre || '',
+      sort: opts.sort || 'title',
+      searched: !!opts.searched,
       status: opts.status || null,
       editBook,
     }),
@@ -116,8 +107,6 @@ Deno.serve(async (req) => {
   const actionBase = url.origin + url.pathname.replace(/\/$/, '');
 
   try {
-    // GET cannot serve HTML on Supabase (forced to text/plain).
-    // Send people to GitHub Pages, which renders correctly.
     if (req.method === 'GET' || req.method === 'HEAD') {
       return redirect(pagesHome);
     }
@@ -133,17 +122,23 @@ Deno.serve(async (req) => {
     const action = String(form.get('action') || 'view');
 
     if (action === 'view') {
+      const view = String(form.get('view') || 'home');
       return await renderView({
         actionBase,
-        view: String(form.get('view') || 'catalogue'),
-        shelfId: String(form.get('shelf') || '') || null,
+        view,
         query: String(form.get('q') || ''),
-        sort: String(form.get('sort') || 'recent'),
+        letter: String(form.get('letter') || ''),
+        genre: String(form.get('genre') || ''),
+        sort: String(form.get('sort') || 'title'),
+        searched:
+          form.get('searched') === '1' ||
+          (view === 'find' && String(form.get('q') || '').trim() !== ''),
         id: String(form.get('id') || '') || null,
         status: String(form.get('status') || '') || null,
       });
     }
 
+    // Lightweight manage actions kept for catalogue upkeep
     if (action === 'create-book' || action === 'update-book') {
       const payload = {
         title: String(form.get('title') || '').trim(),
@@ -153,16 +148,28 @@ Deno.serve(async (req) => {
         shelf_id: String(form.get('shelf_id') || '') || null,
         genres: parseGenres(form.get('genres')),
         keywords: String(form.get('keywords') || '').trim() || null,
+        description: String(form.get('description') || '').trim() || null,
+        availability: String(form.get('availability') || 'available'),
+        year: String(form.get('year') || '').trim()
+          ? Number(form.get('year'))
+          : null,
+        publisher: String(form.get('publisher') || '').trim() || null,
+        isbn: String(form.get('isbn') || '').trim() || null,
       };
       if (!payload.title || !payload.author) {
-        throw new Error('Title and author are required.');
+        return await renderView({
+          actionBase,
+          view: 'home',
+          status: 'Title and author are required.',
+          httpStatus: 400,
+        });
       }
       if (action === 'create-book') {
         const { error } = await supabase.from('books').insert(payload);
         if (error) throw error;
         return await renderView({
           actionBase,
-          view: 'catalogue',
+          view: 'browse',
           status: 'Book added.',
         });
       }
@@ -171,7 +178,8 @@ Deno.serve(async (req) => {
       if (error) throw error;
       return await renderView({
         actionBase,
-        view: 'catalogue',
+        view: 'book',
+        id,
         status: 'Book updated.',
       });
     }
@@ -182,14 +190,21 @@ Deno.serve(async (req) => {
       if (error) throw error;
       return await renderView({
         actionBase,
-        view: 'catalogue',
+        view: 'browse',
         status: 'Book deleted.',
       });
     }
 
     if (action === 'create-shelf') {
       const name = String(form.get('name') || '').trim();
-      if (!name) throw new Error('Shelf name is required.');
+      if (!name) {
+        return await renderView({
+          actionBase,
+          view: 'home',
+          status: 'Shelf name is required.',
+          httpStatus: 400,
+        });
+      }
       const { data: existing } = await supabase
         .from('shelves')
         .select('sort_order')
@@ -205,18 +220,23 @@ Deno.serve(async (req) => {
       if (error) throw error;
       return await renderView({
         actionBase,
-        view: 'catalogue',
+        view: 'browse',
         status: 'Shelf added.',
       });
     }
 
-    throw new Error('Unknown action.');
+    return await renderView({
+      actionBase,
+      view: 'home',
+      status: 'That action is not recognised. Choose Find a Book or Browse Library.',
+      httpStatus: 400,
+    });
   } catch (err) {
     const message = err instanceof Error ? err.message : 'Unexpected error';
     try {
       return await renderView({
         actionBase,
-        view: 'catalogue',
+        view: 'home',
         status: message,
         httpStatus: 500,
       });

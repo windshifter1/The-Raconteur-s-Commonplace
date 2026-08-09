@@ -6,9 +6,5 @@ kobo-dist
 .env
 .env.local
 .env.*.local
-modern/node_modules
-modern/dist
 .supabase-token
-supabase/functions/catalogue/html.mjs.bak
-
 .vite

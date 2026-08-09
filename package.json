@@ -1,12 +1,10 @@
 {
   "name": "the-raconteurs-commonplace",
   "private": true,
-  "version": "0.2.0",
+  "version": "0.3.0",
   "type": "module",
   "scripts": {
     "build": "node kobo/build.mjs",
-    "build:kobo": "node kobo/build.mjs",
-    "dev:modern": "npm --prefix modern run dev",
-    "build:modern": "npm --prefix modern run build"
+    "build:kobo": "node kobo/build.mjs"
   }
 }
