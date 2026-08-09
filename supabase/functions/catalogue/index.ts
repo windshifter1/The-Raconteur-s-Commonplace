@@ -1,7 +1,7 @@
 // Kobo plain-HTML catalogue — server-rendered, zero client JS.
 // Supabase rewrites GET text/html → text/plain, so all page views use POST.
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.55.0';
-import { parseGenres, renderPage, slugify } from './html.ts';
+import { catalogueEndpoint, parseGenres, renderPage, slugify } from './html.ts';
 
 const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
 const anonKey = Deno.env.get('SUPABASE_ANON_KEY')!;
@@ -103,8 +103,9 @@ async function renderView(opts: {
 }
 
 Deno.serve(async (req) => {
-  const url = new URL(req.url);
-  const actionBase = url.origin + url.pathname.replace(/\/$/, '');
+  // Never derive the form action from the request path — extra segments /
+  // trailing slashes make Supabase return {"error":"requested path is invalid"}.
+  const actionBase = catalogueEndpoint(supabaseUrl);
 
   try {
     if (req.method === 'GET' || req.method === 'HEAD') {
@@ -228,7 +229,7 @@ Deno.serve(async (req) => {
     return await renderView({
       actionBase,
       view: 'home',
-      status: 'That action is not recognised. Choose Find a Book or Browse Library.',
+        status: 'Unknown action.',
       httpStatus: 400,
     });
   } catch (err) {

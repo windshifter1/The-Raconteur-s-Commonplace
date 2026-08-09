@@ -1,6 +1,6 @@
 /**
- * The Raconteur's Commonplace — plain HTML for Kobo / E-Ink.
- * Supabase GET cannot serve HTML (forced text/plain), so live nav uses POST forms.
+ * The Raconteur's Commonplace — minimal plain HTML for Kobo / E-Ink.
+ * Live navigation uses POST (Supabase cannot serve HTML on GET).
  */
 
 export function escapeHtml(value) {
@@ -16,23 +16,24 @@ export function escapeAttr(value) {
   return escapeHtml(value);
 }
 
-export function buildUrl(actionBase, apiKey, params) {
-  const parts = [];
-  if (apiKey) parts.push('apikey=' + encodeURIComponent(apiKey));
-  if (params) {
-    const keys = Object.keys(params);
-    for (let i = 0; i < keys.length; i++) {
-      const k = keys[i];
-      const v = params[k];
-      if (v === undefined || v === null || v === '') continue;
-      parts.push(encodeURIComponent(k) + '=' + encodeURIComponent(String(v)));
-    }
-  }
-  return actionBase + (parts.length ? '?' + parts.join('&') : '');
+/** Always the bare function root — never derive from request path. */
+export function catalogueEndpoint(supabaseUrl) {
+  return String(supabaseUrl || '').replace(/\/$/, '') + '/functions/v1/catalogue';
 }
 
-function endpoint(actionBase, apiKey) {
-  return buildUrl(actionBase, apiKey, {});
+function formAction(actionBase, apiKey) {
+  // Fixed root + apikey only. No extra query params, no trailing slash.
+  let base = String(actionBase || '').replace(/\/$/, '');
+  const q = base.indexOf('?');
+  if (q !== -1) base = base.slice(0, q);
+  // Strip accidental path segments after /catalogue
+  const marker = '/functions/v1/catalogue';
+  const at = base.indexOf(marker);
+  if (at !== -1) {
+    base = base.slice(0, at + marker.length);
+  }
+  if (!apiKey) return base;
+  return base + '?apikey=' + encodeURIComponent(apiKey);
 }
 
 function postNav(actionBase, apiKey, label, fields, btnClass) {
@@ -53,14 +54,13 @@ function postNav(actionBase, apiKey, label, fields, btnClass) {
       escapeAttr(String(v)) +
       '">';
   }
-  const cls = btnClass || 'linkbtn';
   return (
     '<form class="inline" method="post" action="' +
-    escapeAttr(endpoint(actionBase, apiKey)) +
+    escapeAttr(formAction(actionBase, apiKey)) +
     '">' +
     inputs +
     '<input class="' +
-    escapeAttr(cls) +
+    escapeAttr(btnClass || 'linkbtn') +
     '" type="submit" value="' +
     escapeAttr(label) +
     '">' +
@@ -68,18 +68,18 @@ function postNav(actionBase, apiKey, label, fields, btnClass) {
   );
 }
 
-function formatLabel(format) {
-  if (format === 'hardcover') return 'Hardcover';
-  if (format === 'ebook') return 'Ebook';
-  if (format === 'other') return 'Other';
-  return 'Paperback';
-}
-
 function availabilityLabel(value) {
   if (value === 'on_loan') return 'On loan';
   if (value === 'reserved') return 'Reserved';
   if (value === 'unavailable') return 'Unavailable';
   return 'Available';
+}
+
+function formatLabel(format) {
+  if (format === 'hardcover') return 'Hardcover';
+  if (format === 'ebook') return 'Ebook';
+  if (format === 'other') return 'Other';
+  return 'Paperback';
 }
 
 function safeCompare(a, b) {
@@ -187,167 +187,144 @@ function filterAndSortBooks(books, opts) {
 function css() {
   return [
     'html,body{margin:0;padding:0;background:#fff;color:#000;}',
-    'body{font-family:Arial,Helvetica,sans-serif;font-size:16px;line-height:1.45;}',
-    'a{color:#000;}',
-    'h1,h2,h3{font-family:Georgia,"Times New Roman",serif;font-weight:bold;margin:0;}',
-    'table{border-collapse:collapse;}',
-    'td,th{vertical-align:top;}',
-    '.page{width:94%;max-width:900px;margin:0 auto;padding:22px 12px 48px 12px;}',
-    '.brand{font-family:Georgia,"Times New Roman",serif;font-size:28px;line-height:1.15;margin:0;}',
-    '.kicker{font-size:11px;letter-spacing:0.16em;text-transform:uppercase;margin:8px 0 0 0;}',
-    '.top{width:100%;margin-bottom:18px;border-bottom:1px solid #000;padding-bottom:14px;}',
-    '.top td{padding:0;vertical-align:middle;}',
-    '.nav .inline{display:inline;margin-left:12px;}',
-    '.btn{display:inline-block;border:1px solid #000;padding:10px 16px;text-decoration:none;background:#fff;color:#000;font:inherit;cursor:pointer;}',
-    '.btn-large{display:block;width:100%;text-align:center;padding:28px 16px;margin:0 0 16px 0;font-size:22px;font-family:Georgia,"Times New Roman",serif;}',
+    'body{font-family:Arial,Helvetica,sans-serif;font-size:17px;line-height:1.35;}',
+    'h1,h2{font-family:Georgia,"Times New Roman",serif;font-weight:bold;margin:0;}',
+    'table{border-collapse:collapse;width:100%;}',
+    'td{vertical-align:top;}',
+    '.page{width:94%;max-width:820px;margin:0 auto;padding:18px 10px 36px 10px;}',
+    '.brand{font-size:28px;line-height:1.1;margin:0 0 18px 0;}',
+    '.nav{width:100%;margin:0 0 16px 0;}',
+    '.nav td{padding:0 6px 0 0;width:33%;}',
+    '.navbtn{display:block;width:100%;border:2px solid #000;background:#fff;color:#000;padding:16px 6px;font-size:18px;font-family:Georgia,"Times New Roman",serif;cursor:pointer;}',
+    '.navbtn-on{background:#000;color:#fff;}',
+    '.btn{border:2px solid #000;background:#fff;color:#000;padding:12px 16px;font:inherit;cursor:pointer;}',
+    '.btn-large{display:block;width:100%;text-align:center;padding:48px 14px;margin:0 0 18px 0;font-size:30px;font-family:Georgia,"Times New Roman",serif;border:3px solid #000;line-height:1.2;}',
     '.linkbtn{background:none;border:0;padding:0;margin:0;color:#000;text-decoration:underline;font:inherit;cursor:pointer;}',
     'form.inline{display:inline;margin:0;padding:0;}',
-    '.label{font-size:11px;letter-spacing:0.14em;text-transform:uppercase;font-weight:bold;margin:0 0 10px 0;}',
-    '.hero{font-size:30px;margin:0 0 10px 0;}',
-    '.lead{font-family:Georgia,"Times New Roman",serif;font-size:16px;margin:0 0 18px 0;}',
-    '.rule{border:0;border-top:1px solid #000;margin:16px 0;}',
-    '.rule-thick{border:0;border-top:2px solid #000;margin:18px 0;}',
-    '.home-options{margin-top:28px;}',
+    'form.block{display:block;margin:0;padding:0;}',
+    'input[type=text],input[type=search],select{width:98%;border:1px solid #000;background:#fff;padding:12px;font-size:17px;}',
     '.field{margin:0 0 12px 0;}',
-    '.field .lbl{font-size:11px;letter-spacing:0.1em;text-transform:uppercase;font-weight:bold;margin:0 0 4px 0;}',
-    'input[type=text],input[type=search],select,textarea{width:98%;border:1px solid #000;background:#fff;color:#000;padding:9px;font-size:15px;font-family:Arial,Helvetica,sans-serif;}',
-    'textarea{height:90px;}',
-    '.tools{width:100%;margin:0 0 16px 0;}',
-    '.tools td{padding:0 10px 10px 0;}',
-    '.letters{margin:0 0 14px 0;line-height:1.9;}',
-    '.letters .inline{margin-right:8px;}',
-    '.books{width:100%;border-top:1px solid #000;}',
-    '.books td{border-bottom:1px solid #000;padding:12px 8px 12px 0;font-size:15px;}',
-    '.books .title{font-family:Georgia,"Times New Roman",serif;font-size:17px;}',
-    '.books .meta{font-size:13px;}',
-    '.empty{padding:18px 12px;border:1px solid #000;margin:12px 0;}',
-    '.status{border:1px solid #000;padding:8px 10px;margin:0 0 14px 0;}',
-    '.card{border:1px solid #000;padding:18px;margin:12px 0 20px 0;}',
-    '.card h2{font-size:28px;margin:0 0 8px 0;}',
-    '.card .byline{font-family:Georgia,"Times New Roman",serif;font-size:18px;margin:0 0 14px 0;}',
-    '.card .row{margin:0 0 10px 0;}',
-    '.card .lbl{font-size:11px;letter-spacing:0.1em;text-transform:uppercase;font-weight:bold;}',
-    '.footer-note{margin-top:28px;font-size:12px;}',
-    '.crumb{margin:0 0 16px 0;font-size:14px;}',
+    '.tools td{padding:0 8px 10px 0;}',
+    '.letters{margin:0 0 14px 0;line-height:2.1;}',
+    '.letters .inline{margin:0 8px 0 0;}',
+    '.books td{border-top:1px solid #000;padding:14px 0;font-size:16px;}',
+    '.books .title{font-family:Georgia,"Times New Roman",serif;font-size:19px;}',
+    '.books .meta{font-size:14px;margin-top:4px;}',
+    '.empty{border:1px solid #000;padding:16px;margin:10px 0;}',
+    '.status{border:1px solid #000;padding:10px;margin:0 0 12px 0;}',
+    '.card{border:2px solid #000;padding:18px;margin:4px 0 0 0;}',
+    '.card h2{font-size:28px;margin:0 0 6px 0;}',
+    '.card .by{font-size:18px;margin:0 0 14px 0;font-family:Georgia,"Times New Roman",serif;}',
+    '.card .meta{margin:0 0 12px 0;font-size:15px;}',
+    '.card .desc{margin:0;}',
   ].join('');
 }
 
-function shellStart(opts, title) {
+function mainNav(opts, active) {
   const actionBase = opts.actionBase;
   const apiKey = opts.apiKey || '';
-  let html = '';
-  html += '<!DOCTYPE html>\n<html lang="en">\n<head>\n';
+  const items = [
+    { view: 'home', label: 'Home' },
+    { view: 'find', label: 'Find' },
+    { view: 'browse', label: 'Browse' },
+  ];
+  let html = '<table class="nav"><tr>';
+  for (let i = 0; i < items.length; i++) {
+    const item = items[i];
+    const on = active === item.view ? ' navbtn-on' : '';
+    html += '<td>';
+    html +=
+      '<form class="block" method="post" action="' +
+      escapeAttr(formAction(actionBase, apiKey)) +
+      '">' +
+      '<input type="hidden" name="action" value="view">' +
+      '<input type="hidden" name="view" value="' +
+      escapeAttr(item.view) +
+      '">' +
+      '<input class="navbtn' +
+      on +
+      '" type="submit" value="' +
+      escapeAttr(item.label) +
+      '">' +
+      '</form>';
+    html += '</td>';
+  }
+  html += '</tr></table>';
+  return html;
+}
+
+function shellStart(opts, title, active, showNav) {
+  let html = '<!DOCTYPE html>\n<html lang="en">\n<head>\n';
   html += '<meta charset="utf-8">\n';
   html +=
     '<meta name="viewport" content="width=device-width, initial-scale=1">\n';
   html += '<title>' + escapeHtml(title) + '</title>\n';
   html += '<style type="text/css">' + css() + '</style>\n';
   html += '</head>\n<body>\n<div class="page">\n';
-  html += '<table class="top" width="100%"><tr>';
-  html +=
-    '<td><h1 class="brand">The Raconteur&#39;s Commonplace</h1>' +
-    '<p class="kicker">Personal library / catalogue</p></td>';
-  html += '<td align="right" class="nav">';
-  html += postNav(actionBase, apiKey, 'Home', { action: 'view', view: 'home' });
-  html += postNav(actionBase, apiKey, 'Find', { action: 'view', view: 'find' });
-  html += postNav(actionBase, apiKey, 'Browse', {
-    action: 'view',
-    view: 'browse',
-  });
-  html += '</td></tr></table>\n';
+  html += '<h1 class="brand">The Raconteur&#39;s Commonplace</h1>\n';
+  if (showNav !== false) {
+    html += mainNav(opts, active);
+  }
   if (opts.status) {
     html += '<div class="status">' + escapeHtml(opts.status) + '</div>';
   }
   return html;
 }
 
-function shellEnd(opts) {
-  let html = '';
-  html +=
-    '<p class="footer-note">Plain catalogue for E-Ink and simple browsers. No scripts.</p>';
-  if (opts.pagesHome) {
-    html +=
-      '<p class="footer-note"><a href="' +
-      escapeAttr(opts.pagesHome) +
-      '">' +
-      escapeHtml(opts.pagesHome) +
-      '</a></p>';
+function shellEnd() {
+  return '</div>\n</body>\n</html>';
+}
+
+function bookResultRows(books, actionBase, apiKey) {
+  if (!books.length) {
+    return '<div class="empty">No books found.</div>';
   }
-  html += '</div>\n</body>\n</html>';
+  let html = '<table class="books">';
+  for (let i = 0; i < books.length; i++) {
+    const b = books[i];
+    const genres = (b.genres || []).join(', ');
+    const bits = [b.author || 'Unknown author'];
+    if (genres) bits.push(genres);
+    bits.push(availabilityLabel(b.availability));
+    html += '<tr><td>';
+    html +=
+      '<div class="title">' +
+      postNav(actionBase, apiKey, b.title || 'Untitled', {
+        action: 'view',
+        view: 'book',
+        id: b.id,
+      }) +
+      '</div>';
+    html +=
+      '<div class="meta">' + escapeHtml(bits.join(' · ')) + '</div>';
+    html += '</td></tr>';
+  }
+  html += '</table>';
   return html;
 }
 
 function renderHome(opts) {
   const actionBase = opts.actionBase;
   const apiKey = opts.apiKey || '';
-  let html = shellStart(opts, "The Raconteur's Commonplace");
-  html += '<p class="label">Library catalogue</p>';
-  html += '<h2 class="hero">Where to begin?</h2>';
+  // No top nav — the two large buttons replace the old “full experience” entry.
+  let html = shellStart(opts, "The Raconteur's Commonplace", 'home', false);
   html +=
-    '<p class="lead">A plain index of the stories, ideas, and places kept close.</p>';
-  html += '<div class="home-options">';
-  html +=
-    '<form method="post" action="' +
-    escapeAttr(endpoint(actionBase, apiKey)) +
+    '<form class="block" method="post" action="' +
+    escapeAttr(formAction(actionBase, apiKey)) +
     '">' +
     '<input type="hidden" name="action" value="view">' +
     '<input type="hidden" name="view" value="find">' +
     '<input class="btn btn-large" type="submit" value="Find a Book">' +
     '</form>';
   html +=
-    '<form method="post" action="' +
-    escapeAttr(endpoint(actionBase, apiKey)) +
+    '<form class="block" method="post" action="' +
+    escapeAttr(formAction(actionBase, apiKey)) +
     '">' +
     '<input type="hidden" name="action" value="view">' +
     '<input type="hidden" name="view" value="browse">' +
     '<input class="btn btn-large" type="submit" value="Browse Library">' +
     '</form>';
-  html += '</div>';
-  html +=
-    '<p class="footer-note">' +
-    (opts.books || []).length +
-    ' title' +
-    ((opts.books || []).length === 1 ? '' : 's') +
-    ' on ' +
-    (opts.shelves || []).length +
-    ' shelf' +
-    ((opts.shelves || []).length === 1 ? '' : 'ves') +
-    '.</p>';
-  html += shellEnd(opts);
-  return html;
-}
-
-function bookResultRows(books, actionBase, apiKey) {
-  if (!books.length) {
-    return (
-      '<div class="empty">' +
-      '<strong>No books found.</strong><br>' +
-      'Nothing matched your search or filters. Try fewer words, another spelling, or clear the filters and browse again.' +
-      '</div>'
-    );
-  }
-  let html = '<table class="books" width="100%">';
-  for (let i = 0; i < books.length; i++) {
-    const b = books[i];
-    const genres = (b.genres || []).join(', ') || '—';
-    html += '<tr>';
-    html +=
-      '<td class="title">' +
-      postNav(actionBase, apiKey, b.title || 'Untitled', {
-        action: 'view',
-        view: 'book',
-        id: b.id,
-      }) +
-      '<div class="meta">' +
-      escapeHtml(b.author || 'Unknown author') +
-      ' · ' +
-      escapeHtml(genres) +
-      ' · ' +
-      escapeHtml(availabilityLabel(b.availability)) +
-      '</div></td>';
-    html += '</tr>';
-  }
-  html += '</table>';
+  html += shellEnd();
   return html;
 }
 
@@ -357,82 +334,51 @@ function renderFind(opts) {
   const query = opts.query || '';
   const searched = !!opts.searched;
   const results = searched
-    ? filterAndSortBooks(opts.books || [], {
-        query: query,
-        sort: 'title',
-      })
+    ? filterAndSortBooks(opts.books || [], { query: query, sort: 'title' })
     : [];
 
-  let html = shellStart(opts, 'Find a Book — The Raconteur\'s Commonplace');
-  html +=
-    '<p class="crumb">' +
-    postNav(actionBase, apiKey, 'Home', { action: 'view', view: 'home' }) +
-    ' / Find a Book</p>';
-  html += '<p class="label">Find a Book</p>';
-  html += '<h2 class="hero">Search the catalogue.</h2>';
-  html +=
-    '<p class="lead">Search by title, author, genre, keywords, publisher, or ISBN.</p>';
+  let html = shellStart(opts, 'Find', 'find');
   html +=
     '<form method="post" action="' +
-    escapeAttr(endpoint(actionBase, apiKey)) +
+    escapeAttr(formAction(actionBase, apiKey)) +
     '">';
   html += '<input type="hidden" name="action" value="view">';
   html += '<input type="hidden" name="view" value="find">';
   html += '<input type="hidden" name="searched" value="1">';
   html +=
-    '<div class="field"><div class="lbl">Search</div>' +
-    '<input type="search" name="q" value="' +
+    '<div class="field"><input type="search" name="q" value="' +
     escapeAttr(query) +
-    '" placeholder="e.g. Le Guin, fantasy, ISBN">' +
-    '</div>';
+    '" placeholder="Title, author, genre…"></div>';
   html += '<p><input class="btn" type="submit" value="Search"></p>';
   html += '</form>';
-  html += '<hr class="rule">';
 
-  if (!searched) {
-    html +=
-      '<div class="empty">Enter a word or phrase above, then press Search.</div>';
-  } else {
-    html +=
-      '<p class="label">' +
-      results.length +
-      ' result' +
-      (results.length === 1 ? '' : 's') +
-      (query ? ' for “' + escapeHtml(query) + '”' : '') +
-      '</p>';
+  if (searched) {
     html += bookResultRows(results, actionBase, apiKey);
   }
 
-  html += shellEnd(opts);
+  html += shellEnd();
   return html;
 }
 
-function letterBar(actionBase, apiKey, active, genre, sort) {
+function letterBar(actionBase, apiKey, genre, sort) {
   const letters = '#ABCDEFGHIJKLMNOPQRSTUVWXYZ';
   let html = '<div class="letters">';
-  html += postNav(
-    actionBase,
-    apiKey,
-    'All',
-    {
-      action: 'view',
-      view: 'browse',
-      genre: genre || undefined,
-      sort: sort || undefined,
-    },
-    active ? 'linkbtn' : 'linkbtn'
-  );
+  html += postNav(actionBase, apiKey, 'All', {
+    action: 'view',
+    view: 'browse',
+    genre: genre || undefined,
+    sort: sort || undefined,
+  });
   for (let i = 0; i < letters.length; i++) {
     const L = letters.charAt(i);
     html += ' ';
-    const fields = {
+    html += postNav(actionBase, apiKey, L, {
       action: 'view',
       view: 'browse',
       letter: L,
       genre: genre || undefined,
       sort: sort || undefined,
-    };
-    html += postNav(actionBase, apiKey, L, fields);
+    });
   }
   html += '</div>';
   return html;
@@ -451,21 +397,12 @@ function renderBrowse(opts) {
     sort: sort,
   });
 
-  let html = shellStart(opts, 'Browse Library — The Raconteur\'s Commonplace');
-  html +=
-    '<p class="crumb">' +
-    postNav(actionBase, apiKey, 'Home', { action: 'view', view: 'home' }) +
-    ' / Browse Library</p>';
-  html += '<p class="label">Browse Library</p>';
-  html += '<h2 class="hero">Walk the shelves.</h2>';
-  html +=
-    '<p class="lead">Filter by first letter or genre, and sort by title, author, or genre.</p>';
-
-  html += letterBar(actionBase, apiKey, !letter, genre, sort);
+  let html = shellStart(opts, 'Browse', 'browse');
+  html += letterBar(actionBase, apiKey, genre, sort);
 
   html +=
     '<form method="post" action="' +
-    escapeAttr(endpoint(actionBase, apiKey)) +
+    escapeAttr(formAction(actionBase, apiKey)) +
     '">';
   html += '<input type="hidden" name="action" value="view">';
   html += '<input type="hidden" name="view" value="browse">';
@@ -475,10 +412,9 @@ function renderBrowse(opts) {
       escapeAttr(letter) +
       '">';
   }
-  html += '<table class="tools" width="100%"><tr>';
+  html += '<table class="tools"><tr>';
   html +=
-    '<td width="50%"><div class="lbl">Genre</div><select name="genre">' +
-    '<option value="">All genres</option>';
+    '<td width="50%"><select name="genre"><option value="">All genres</option>';
   for (let i = 0; i < genres.length; i++) {
     const g = genres[i];
     const sel =
@@ -493,8 +429,7 @@ function renderBrowse(opts) {
       '</option>';
   }
   html += '</select></td>';
-  html +=
-    '<td width="50%"><div class="lbl">Sort by</div><select name="sort">';
+  html += '<td width="50%"><select name="sort">';
   html +=
     '<option value="title"' +
     (sort === 'title' ? ' selected' : '') +
@@ -507,25 +442,13 @@ function renderBrowse(opts) {
     '<option value="genre"' +
     (sort === 'genre' ? ' selected' : '') +
     '>Genre</option>';
-  html +=
-    '<option value="recent"' +
-    (sort === 'recent' ? ' selected' : '') +
-    '>Recently added</option>';
   html += '</select></td></tr>';
   html +=
-    '<tr><td colspan="2"><input class="btn" type="submit" value="Apply filters"></td></tr>';
+    '<tr><td colspan="2"><input class="btn" type="submit" value="Apply"></td></tr>';
   html += '</table></form>';
-  html += '<hr class="rule">';
-  html +=
-    '<p class="label">' +
-    results.length +
-    ' title' +
-    (results.length === 1 ? '' : 's') +
-    (letter ? ' · letter ' + escapeHtml(letter) : '') +
-    (genre ? ' · ' + escapeHtml(genre) : '') +
-    '</p>';
+
   html += bookResultRows(results, actionBase, apiKey);
-  html += shellEnd(opts);
+  html += shellEnd();
   return html;
 }
 
@@ -533,33 +456,11 @@ function renderBook(opts) {
   const actionBase = opts.actionBase;
   const apiKey = opts.apiKey || '';
   const book = opts.editBook;
-  let html = shellStart(opts, book ? book.title + ' — Catalogue' : 'Book');
-
-  html +=
-    '<p class="crumb">' +
-    postNav(actionBase, apiKey, 'Home', { action: 'view', view: 'home' }) +
-    ' / ' +
-    postNav(actionBase, apiKey, 'Browse', { action: 'view', view: 'browse' }) +
-    ' / Title</p>';
+  let html = shellStart(opts, book ? book.title : 'Book', 'browse');
 
   if (!book) {
-    html += '<p class="label">Title</p>';
-    html += '<h2 class="hero">Book not found</h2>';
-    html +=
-      '<div class="empty">That title is not in the catalogue. It may have been removed, or the link is out of date.</div>';
-    html +=
-      '<p>' +
-      postNav(actionBase, apiKey, 'Back to Browse', {
-        action: 'view',
-        view: 'browse',
-      }) +
-      ' · ' +
-      postNav(actionBase, apiKey, 'Find a Book', {
-        action: 'view',
-        view: 'find',
-      }) +
-      '</p>';
-    html += shellEnd(opts);
+    html += '<div class="empty">Book not found.</div>';
+    html += shellEnd();
     return html;
   }
 
@@ -571,89 +472,37 @@ function renderBook(opts) {
       break;
     }
   }
+  const genres = (book.genres || []).join(', ');
+  const bits = [
+    availabilityLabel(book.availability),
+    formatLabel(book.format) + (book.is_digital ? ' · Digital' : ''),
+    shelfName,
+  ];
+  if (genres) bits.splice(1, 0, genres);
 
-  const genres = (book.genres || []).join(', ') || '—';
-
-  html += '<p class="label">Title record</p>';
   html += '<div class="card">';
   html += '<h2>' + escapeHtml(book.title || 'Untitled') + '</h2>';
   html +=
-    '<p class="byline">' +
-    escapeHtml(book.author || 'Unknown author') +
-    '</p>';
+    '<p class="by">' + escapeHtml(book.author || 'Unknown author') + '</p>';
   html +=
-    '<div class="row"><div class="lbl">Availability</div>' +
-    escapeHtml(availabilityLabel(book.availability)) +
-    '</div>';
-  html +=
-    '<div class="row"><div class="lbl">Genre</div>' +
-    escapeHtml(genres) +
-    '</div>';
-  html +=
-    '<div class="row"><div class="lbl">Description</div>' +
-    escapeHtml(
-      book.description || 'No description has been added for this title yet.'
-    ) +
-    '</div>';
-  html += '<hr class="rule">';
-  html +=
-    '<div class="row"><div class="lbl">Format</div>' +
-    escapeHtml(formatLabel(book.format)) +
-    (book.is_digital ? ' · Digital edition' : '') +
-    '</div>';
-  html +=
-    '<div class="row"><div class="lbl">Shelf</div>' +
-    escapeHtml(shelfName) +
-    '</div>';
-  if (book.publisher) {
+    '<p class="meta">' + escapeHtml(bits.join(' · ')) + '</p>';
+  if (book.description) {
     html +=
-      '<div class="row"><div class="lbl">Publisher</div>' +
-      escapeHtml(book.publisher) +
-      '</div>';
+      '<p class="desc">' + escapeHtml(book.description) + '</p>';
   }
-  if (book.year != null) {
+  const extras = [];
+  if (book.publisher) extras.push(book.publisher);
+  if (book.year != null) extras.push(String(book.year));
+  if (book.isbn) extras.push('ISBN ' + book.isbn);
+  if (extras.length) {
     html +=
-      '<div class="row"><div class="lbl">Year</div>' +
-      escapeHtml(String(book.year)) +
-      '</div>';
-  }
-  if (book.isbn) {
-    html +=
-      '<div class="row"><div class="lbl">ISBN</div>' +
-      escapeHtml(book.isbn) +
-      '</div>';
-  }
-  if (book.keywords) {
-    html +=
-      '<div class="row"><div class="lbl">Keywords</div>' +
-      escapeHtml(book.keywords) +
-      '</div>';
+      '<p class="meta">' + escapeHtml(extras.join(' · ')) + '</p>';
   }
   html += '</div>';
-
-  html += '<p>';
-  html += postNav(actionBase, apiKey, 'Back to Browse', {
-    action: 'view',
-    view: 'browse',
-  });
-  html += ' · ';
-  html += postNav(actionBase, apiKey, 'Find a Book', {
-    action: 'view',
-    view: 'find',
-  });
-  html += ' · ';
-  html += postNav(actionBase, apiKey, 'Home', {
-    action: 'view',
-    view: 'home',
-  });
-  html += '</p>';
-  html += shellEnd(opts);
+  html += shellEnd();
   return html;
 }
 
-/**
- * @param {object} opts
- */
 export function renderPage(opts) {
   const view = opts.view || 'home';
   if (view === 'find') return renderFind(opts);
@@ -678,4 +527,20 @@ export function parseGenres(raw) {
       return g.replace(/^\s+|\s+$/g, '');
     })
     .filter(Boolean);
+}
+
+export function buildUrl(actionBase, apiKey, params) {
+  const parts = [];
+  if (apiKey) parts.push('apikey=' + encodeURIComponent(apiKey));
+  if (params) {
+    const keys = Object.keys(params);
+    for (let i = 0; i < keys.length; i++) {
+      const k = keys[i];
+      const v = params[k];
+      if (v === undefined || v === null || v === '') continue;
+      parts.push(encodeURIComponent(k) + '=' + encodeURIComponent(String(v)));
+    }
+  }
+  const base = formAction(actionBase, '').replace(/\/$/, '');
+  return base + (parts.length ? '?' + parts.join('&') : '');
 }
