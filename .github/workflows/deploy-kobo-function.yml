@@ -50,17 +50,22 @@ jobs:
             echo "::warning::Skipping live verify — missing Supabase URL/key vars."
             exit 0
           fi
-          url="${VITE_SUPABASE_URL%/}/functions/v1/catalogue?apikey=${VITE_SUPABASE_ANON_KEY}&view=catalogue"
-          echo "Probing $url"
-          status=$(curl -s -o /tmp/catalogue.html -w "%{http_code}" "$url")
+          # Supabase cannot serve HTML on GET — probe with POST.
+          url="${VITE_SUPABASE_URL%/}/functions/v1/catalogue?apikey=${VITE_SUPABASE_ANON_KEY}"
+          echo "Probing POST $url"
+          status=$(curl -s -o /tmp/catalogue.html -w "%{http_code}" \
+            -X POST \
+            -H "Content-Type: application/x-www-form-urlencoded" \
+            --data "action=view&view=home" \
+            "$url")
           echo "HTTP $status"
           if [ "$status" != "200" ]; then
             echo "::error::Function probe failed."
             head -c 400 /tmp/catalogue.html || true
             exit 1
           fi
-          if ! grep -q "Raconteur" /tmp/catalogue.html; then
-            echo "::error::Function returned 200 but HTML looks wrong."
+          if ! grep -q "Find a Book" /tmp/catalogue.html; then
+            echo "::error::Function returned 200 but home page looks wrong."
             exit 1
           fi
           echo "Live catalogue verified."
