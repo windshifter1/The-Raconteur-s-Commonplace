@@ -5,6 +5,7 @@ import { fileURLToPath } from 'node:url';
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const root = join(__dirname, '..');
 const dist = join(root, 'kobo-dist');
+const base = '/The-Raconteur-s-Commonplace';
 
 function copyMockup(name) {
   const src = join(root, name);
@@ -17,11 +18,10 @@ function copyMockup(name) {
 
 copyMockup('mockup1');
 copyMockup('mockup2');
+copyMockup('mockup3');
 
-// Keep /mockup as a small index linking to both
 const hubOut = join(dist, 'mockup');
 mkdirSync(hubOut, { recursive: true });
-const base = '/The-Raconteur-s-Commonplace';
 writeFileSync(
   join(hubOut, 'index.html'),
   `<!DOCTYPE html>
@@ -45,6 +45,7 @@ span{display:block;font-size:.9rem;opacity:.7;margin-top:.2rem}
 <h1>The Raconteur's Commonplace</h1>
 <a href="${base}/mockup1/">Mockup 1 <span>Cozy &amp; stylized catalogue</span></a>
 <a href="${base}/mockup2/">Mockup 2 <span>Pixel-art library room</span></a>
+<a href="${base}/mockup3/">Mockup 3 <span>Soft shelves (storybook-inspired)</span></a>
 </main>
 </body>
 </html>
