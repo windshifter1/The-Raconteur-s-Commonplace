@@ -37,8 +37,8 @@ export function SearchDrawer({
       <div className="panel-handle" aria-hidden="true" />
       <header className="panel-header">
         <div>
-          <p className="eyebrow">Library</p>
-          <h2>Find a book</h2>
+          <p className="eyebrow">Catalogue</p>
+          <h2>Browse</h2>
         </div>
         <button type="button" className="icon-btn" onClick={onClose} aria-label="Close">
           ×

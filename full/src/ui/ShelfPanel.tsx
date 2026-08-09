@@ -26,10 +26,12 @@ export function ShelfPanel({
       <div className="panel-handle" aria-hidden="true" />
       <header className="panel-header">
         <div>
-          <p className="eyebrow">Shelf bay</p>
+          <p className="eyebrow">Shelf</p>
           <h2>{title}</h2>
           <p className="muted">
-            {books.length} {books.length === 1 ? 'book' : 'books'}
+            {books.length === 0
+              ? 'Empty for now'
+              : `${books.length} ${books.length === 1 ? 'volume' : 'volumes'}`}
           </p>
         </div>
         <button type="button" className="icon-btn" onClick={onClose} aria-label="Close">
@@ -40,16 +42,18 @@ export function ShelfPanel({
       <div className="panel-actions">
         <button
           type="button"
-          className="btn primary"
+          className="btn solid"
           onClick={() => onAddBook(shelf?.id ?? null)}
         >
-          Add to this shelf
+          Place a book here
         </button>
       </div>
 
       <ul className="book-list">
         {books.length === 0 && (
-          <li className="empty-state">This bay is waiting for its first volume.</li>
+          <li className="empty-state">
+            This shelf is clear. Add a book whenever you are ready.
+          </li>
         )}
         {books.map((book) => (
           <li key={book.id}>

@@ -186,7 +186,6 @@ export default function App() {
           >
             <BookshelfScene
               shelves={shelves}
-              books={books}
               activeBay={activeBay}
               onBayClick={(key) => setPanel({ kind: 'shelf', visualKey: key })}
             />
@@ -194,8 +193,8 @@ export default function App() {
         </div>
 
         <div className="hint-bar">
-          <span>Drag to pan · Scroll / pinch to zoom · Click a bay for its books</span>
-          {loading && <span className="status">Opening the room…</span>}
+          <span>Drag to look around · Scroll to zoom · Select a shelf</span>
+          {loading && <span className="status">Preparing the room…</span>}
           {error && <span className="status error">{error}</span>}
         </div>
       </main>

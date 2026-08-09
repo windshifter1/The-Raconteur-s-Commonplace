@@ -260,7 +260,7 @@ export function BookForm({ initial, shelves, title, busy, onCancel, onSubmit }: 
           <button type="button" className="btn ghost" onClick={onCancel} disabled={busy}>
             Cancel
           </button>
-          <button type="submit" className="btn primary" disabled={busy || !!uploading}>
+          <button type="submit" className="btn solid" disabled={busy || !!uploading}>
             {busy ? 'Saving…' : 'Save book'}
           </button>
         </div>

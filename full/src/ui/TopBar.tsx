@@ -21,7 +21,7 @@ export function TopBar({
     <header className="topbar">
       <div className="topbar-brand">
         <p className="brand-mark">The Raconteur&apos;s Commonplace</p>
-        <p className="brand-sub">Full Experience</p>
+        <p className="brand-sub">Home library</p>
       </div>
 
       <div className="topbar-tools">
@@ -29,7 +29,7 @@ export function TopBar({
           <span className="sr-only">Search library</span>
           <input
             type="search"
-            placeholder="Search title, author, genre…"
+            placeholder="Search the library…"
             value={query}
             onChange={(e) => onQueryChange(e.target.value)}
             onFocus={onOpenSearch}
@@ -38,17 +38,17 @@ export function TopBar({
             }}
           />
         </label>
-        <button type="button" className="btn ghost" onClick={onOpenSearch}>
+        <button type="button" className="btn text" onClick={onOpenSearch}>
           Browse
         </button>
-        <button type="button" className="btn primary" onClick={onAddBook}>
-          Add book
-        </button>
-        <button type="button" className="btn ghost" onClick={onResetCamera} title="Reset view">
+        <button type="button" className="btn text" onClick={onResetCamera}>
           Recenter
         </button>
-        <a className="btn link" href={KOBO_HREF}>
-          Kobo catalogue
+        <button type="button" className="btn solid" onClick={onAddBook}>
+          Add book
+        </button>
+        <a className="btn text quiet" href={KOBO_HREF}>
+          Kobo
         </a>
       </div>
     </header>

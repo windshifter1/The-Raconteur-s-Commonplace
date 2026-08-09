@@ -88,7 +88,7 @@ export function BookDetail({ book, shelf, onClose, onEdit, onDelete }: Props) {
 
       {book.digital_url && (
         <div className="digital-block">
-          <a className="btn primary" href={book.digital_url} target="_blank" rel="noreferrer">
+          <a className="btn solid" href={book.digital_url} target="_blank" rel="noreferrer">
             Open digital file
           </a>
           {showEmbed && (
