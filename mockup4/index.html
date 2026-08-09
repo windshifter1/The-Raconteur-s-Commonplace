@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Mockup 4 — Room plate (exact)</title>
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <header class="bar">
+      <div>
+        <p class="eyebrow">Mockup 4</p>
+        <h1>The Raconteur&rsquo;s Commonplace</h1>
+      </div>
+      <div class="toggles" role="group" aria-label="Artwork mode">
+        <button type="button" class="tog is-on" data-mode="plate">Exact plate</button>
+        <button type="button" class="tog" data-mode="vector">Vector twin</button>
+      </div>
+    </header>
+
+    <main class="stage">
+      <div class="frame" id="stage">
+        <!-- Exact source illustration -->
+        <img
+          id="plate"
+          class="art plate"
+          src="./room.png"
+          alt="Vector-style home library: cream 3 by 5 bookshelf between curtained windows"
+          width="1448"
+          height="1072"
+        />
+
+        <!-- Interactive bay map aligned to the plate’s shelf grid -->
+        <svg
+          id="hits"
+          class="hits"
+          viewBox="0 0 100 100"
+          preserveAspectRatio="none"
+          aria-label="Shelf bays"
+        >
+          <!-- Tuned to the plate: shelf face ~ x 31.5–68.5, y 14–78 -->
+        </svg>
+
+        <!-- Pure SVG recreation (hidden until toggled) -->
+        <object
+          id="vector"
+          class="art vector"
+          data="./scene.svg"
+          type="image/svg+xml"
+          aria-label="Vector recreation of the library room"
+          hidden
+        ></object>
+      </div>
+
+      <aside class="panel" aria-live="polite">
+        <p class="panel-kicker">Selected bay</p>
+        <h2 id="bay-title">Tap a shelf</h2>
+        <p id="bay-note" class="panel-note">
+          Fifteen compartments on the cream unit — empty of catalogue data for now, ready to open.
+        </p>
+      </aside>
+    </main>
+
+    <script src="./app.js"></script>
+  </body>
+</html>

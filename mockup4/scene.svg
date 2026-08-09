@@ -1,0 +1,327 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 900" role="img" aria-label="Vector twin of the home library room">
+  <defs>
+    <linearGradient id="floor" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#D19A66"/>
+      <stop offset="100%" stop-color="#B87B48"/>
+    </linearGradient>
+    <clipPath id="bayClip">
+      <rect x="0" y="0" width="100" height="100"/>
+    </clipPath>
+  </defs>
+
+  <!-- Wall -->
+  <rect width="1200" height="900" fill="#F8F8F6"/>
+
+  <!-- Vent -->
+  <rect x="470" y="58" width="260" height="12" rx="2" fill="#D9D5CF" stroke="#C5C0B8" stroke-width="1"/>
+  <line x1="485" y1="64" x2="715" y2="64" stroke="#B9B3AA" stroke-width="1.6" stroke-dasharray="8 6"/>
+
+  <!-- Floor -->
+  <rect y="720" width="1200" height="180" fill="url(#floor)"/>
+  <g stroke="#9A6438" stroke-width="1.4" opacity="0.45">
+    <line x1="0" y1="748" x2="1200" y2="748"/>
+    <line x1="0" y1="776" x2="1200" y2="776"/>
+    <line x1="0" y1="804" x2="1200" y2="804"/>
+    <line x1="0" y1="832" x2="1200" y2="832"/>
+    <line x1="0" y1="860" x2="1200" y2="860"/>
+    <line x1="0" y1="888" x2="1200" y2="888"/>
+  </g>
+
+  <!-- LEFT WINDOW -->
+  <g>
+    <rect x="85" y="140" width="155" height="430" fill="#6B5340"/>
+    <rect x="97" y="154" width="131" height="402" fill="#E7F0F5"/>
+    <line x1="162.5" y1="154" x2="162.5" y2="556" stroke="#8A7058" stroke-width="5"/>
+    <line x1="97" y1="355" x2="228" y2="355" stroke="#8A7058" stroke-width="5"/>
+    <line x1="68" y1="128" x2="258" y2="128" stroke="#8B7355" stroke-width="5" stroke-linecap="round"/>
+    <circle cx="68" cy="128" r="7" fill="#5C4533"/>
+    <circle cx="258" cy="128" r="7" fill="#5C4533"/>
+    <path d="M95 132 L230 132 C238 270 220 420 232 580 L102 580 C90 420 108 270 95 132Z" fill="#fff" opacity="0.42"/>
+    <path d="M55 125 C48 230 42 330 78 410 C108 480 90 560 72 650 L158 650 C178 560 198 480 162 410 C118 330 132 230 148 125Z" fill="#DBC7A6" stroke="#C4AF90" stroke-width="1.2"/>
+    <path d="M78 150 C72 280 90 420 78 620" stroke="#C4AF90" stroke-width="1.3" opacity="0.4"/>
+    <path d="M110 148 C104 290 122 430 110 625" stroke="#C4AF90" stroke-width="1.2" opacity="0.32"/>
+    <ellipse cx="118" cy="412" rx="16" ry="9" fill="#B5965E"/>
+    <path d="M118 421 Q132 455 120 495 Q112 525 124 555" stroke="#B5965E" stroke-width="3" fill="none"/>
+    <circle cx="124" cy="558" r="6" fill="#A8844A"/>
+    <path d="M124 564 l-5 14 4-1.5 1.5 12 1.5-12 4 1.5z" fill="#C9A227"/>
+  </g>
+
+  <!-- RIGHT WINDOW -->
+  <g>
+    <rect x="960" y="140" width="155" height="430" fill="#6B5340"/>
+    <rect x="972" y="154" width="131" height="402" fill="#E7F0F5"/>
+    <line x1="1037.5" y1="154" x2="1037.5" y2="556" stroke="#8A7058" stroke-width="5"/>
+    <line x1="972" y1="355" x2="1103" y2="355" stroke="#8A7058" stroke-width="5"/>
+    <line x1="942" y1="128" x2="1132" y2="128" stroke="#8B7355" stroke-width="5" stroke-linecap="round"/>
+    <circle cx="942" cy="128" r="7" fill="#5C4533"/>
+    <circle cx="1132" cy="128" r="7" fill="#5C4533"/>
+    <path d="M970 132 L1105 132 C1113 270 1095 420 1107 580 L977 580 C965 420 983 270 970 132Z" fill="#fff" opacity="0.42"/>
+    <path d="M1052 125 C1068 230 1082 330 1042 410 C1012 480 1030 560 1048 650 L1134 650 C1116 560 1096 480 1132 410 C1176 330 1162 230 1145 125Z" fill="#DBC7A6" stroke="#C4AF90" stroke-width="1.2"/>
+    <path d="M1090 150 C1096 280 1078 420 1090 620" stroke="#C4AF90" stroke-width="1.3" opacity="0.4"/>
+    <path d="M1120 148 C1126 290 1108 430 1120 625" stroke="#C4AF90" stroke-width="1.2" opacity="0.32"/>
+    <ellipse cx="1082" cy="412" rx="16" ry="9" fill="#B5965E"/>
+    <path d="M1082 421 Q1068 455 1080 495 Q1088 525 1076 555" stroke="#B5965E" stroke-width="3" fill="none"/>
+    <circle cx="1076" cy="558" r="6" fill="#A8844A"/>
+    <path d="M1076 564 l5 14 -4-1.5 -1.5 12 -1.5-12 -4 1.5z" fill="#C9A227"/>
+  </g>
+
+  <!-- BOOKCASE body -->
+  <g id="case">
+    <rect x="300" y="100" width="600" height="630" fill="#E6E0D4" stroke="#C9C2B6" stroke-width="2.5"/>
+    <rect x="300" y="730" width="600" height="22" fill="#DAD3C6"/>
+
+    <!-- Inner face -->
+    <rect x="318" y="118" width="564" height="594" fill="#F2EEE9"/>
+
+    <!-- Vertical dividers -->
+    <rect x="494" y="118" width="18" height="594" fill="#E6E0D4"/>
+    <rect x="688" y="118" width="18" height="594" fill="#E6E0D4"/>
+    <!-- Horizontal shelves -->
+    <rect x="318" y="228" width="564" height="14" fill="#E6E0D4"/>
+    <rect x="318" y="344" width="564" height="14" fill="#E6E0D4"/>
+    <rect x="318" y="460" width="564" height="14" fill="#E6E0D4"/>
+    <rect x="318" y="576" width="564" height="14" fill="#E6E0D4"/>
+
+    <!-- Recess tones -->
+    <g fill="#E4DFD6">
+      <rect x="322" y="122" width="168" height="102"/>
+      <rect x="516" y="122" width="168" height="102"/>
+      <rect x="710" y="122" width="168" height="102"/>
+      <rect x="322" y="246" width="168" height="94"/>
+      <rect x="516" y="246" width="168" height="94"/>
+      <rect x="710" y="246" width="168" height="94"/>
+      <rect x="322" y="362" width="168" height="94"/>
+      <rect x="516" y="362" width="168" height="94"/>
+      <rect x="710" y="362" width="168" height="94"/>
+      <rect x="322" y="478" width="168" height="94"/>
+      <rect x="516" y="478" width="168" height="94"/>
+      <rect x="710" y="478" width="168" height="94"/>
+      <rect x="322" y="594" width="168" height="114"/>
+      <rect x="516" y="594" width="168" height="114"/>
+      <rect x="710" y="594" width="168" height="114"/>
+    </g>
+
+    <!-- ===== CONTENTS (matching the plate’s arrangement) ===== -->
+
+    <!-- R1C1 books + plant -->
+    <g transform="translate(330 145)">
+      <rect x="0" y="20" width="10" height="55" fill="#5D4037"/>
+      <rect x="12" y="28" width="8" height="47" fill="#3B5344"/>
+      <rect x="22" y="18" width="11" height="57" fill="#F5F0E6" stroke="#D8D0C2" stroke-width="1"/>
+      <rect x="35" y="30" width="9" height="45" fill="#2C3E50"/>
+      <rect x="46" y="22" width="10" height="53" fill="#7F8C8D"/>
+      <rect x="58" y="26" width="8" height="49" fill="#8B5A3C"/>
+      <rect x="68" y="32" width="9" height="43" fill="#3B5344"/>
+      <!-- plant -->
+      <rect x="110" y="58" width="22" height="16" fill="#F7F3EC" stroke="#D0C8BA" stroke-width="1"/>
+      <ellipse cx="121" cy="48" rx="10" ry="8" fill="#5C8A62"/>
+      <ellipse cx="112" cy="52" rx="7" ry="5" fill="#6B9A6E"/>
+      <ellipse cx="129" cy="50" rx="6" ry="5" fill="#4A7550"/>
+    </g>
+
+    <!-- R1C2 books + frame -->
+    <g transform="translate(528 145)">
+      <rect x="0" y="24" width="9" height="51" fill="#2C3E50"/>
+      <rect x="11" y="18" width="10" height="57" fill="#5D4037"/>
+      <rect x="23" y="28" width="8" height="47" fill="#C4A574"/>
+      <rect x="33" y="22" width="11" height="53" fill="#3B5344"/>
+      <rect x="80" y="30" width="48" height="42" fill="#E8D9B8" stroke="#B5965E" stroke-width="3"/>
+      <circle cx="112" cy="44" r="5" fill="#E8C98A"/>
+      <path d="M88 62 Q100 48 118 52" stroke="#6B8A72" stroke-width="2" fill="none"/>
+    </g>
+
+    <!-- R1C3 trailing plant + books -->
+    <g transform="translate(722 140)">
+      <rect x="48" y="28" width="10" height="55" fill="#2C3E50"/>
+      <rect x="60" y="22" width="9" height="61" fill="#A65A45"/>
+      <rect x="71" y="30" width="11" height="53" fill="#3B5344"/>
+      <rect x="84" y="26" width="8" height="57" fill="#7F8C8D"/>
+      <rect x="94" y="32" width="10" height="51" fill="#5D4037"/>
+      <rect x="106" y="24" width="9" height="59" fill="#2C3E50"/>
+      <rect x="8" y="62" width="20" height="14" fill="#F7F3EC" stroke="#D0C8BA" stroke-width="1"/>
+      <path d="M18 62 C8 40 0 28 6 18" stroke="#4F7A55" stroke-width="3" fill="none"/>
+      <path d="M18 62 C28 38 40 22 48 16" stroke="#5C8A62" stroke-width="3" fill="none"/>
+      <ellipse cx="6" cy="18" rx="7" ry="5" fill="#6B9A6E"/>
+      <ellipse cx="48" cy="16" rx="8" ry="5" fill="#4A7550"/>
+    </g>
+
+    <!-- R2C1 full books -->
+    <g transform="translate(330 268)">
+      <rect x="0" y="18" width="9" height="52" fill="#2C3E50"/>
+      <rect x="11" y="12" width="10" height="58" fill="#5D4037"/>
+      <rect x="23" y="20" width="8" height="50" fill="#3B5344"/>
+      <rect x="33" y="14" width="11" height="56" fill="#7F8C8D"/>
+      <rect x="46" y="22" width="9" height="48" fill="#A65A45"/>
+      <rect x="57" y="16" width="10" height="54" fill="#2C3E50"/>
+      <rect x="69" y="20" width="8" height="50" fill="#C4A574"/>
+      <rect x="79" y="12" width="11" height="58" fill="#3B5344"/>
+      <rect x="92" y="18" width="9" height="52" fill="#5D4037"/>
+      <rect x="103" y="14" width="10" height="56" fill="#7F8C8D"/>
+      <rect x="115" y="20" width="8" height="50" fill="#2C3E50"/>
+      <rect x="125" y="16" width="11" height="54" fill="#8B5A3C"/>
+      <rect x="138" y="22" width="9" height="48" fill="#3B5344"/>
+    </g>
+
+    <!-- R2C2 plant + donut vase -->
+    <g transform="translate(540 275)">
+      <rect x="8" y="48" width="20" height="14" fill="#F7F3EC" stroke="#D0C8BA" stroke-width="1"/>
+      <ellipse cx="18" cy="40" rx="9" ry="7" fill="#5C8A62"/>
+      <ellipse cx="10" cy="44" rx="6" ry="4" fill="#6B9A6E"/>
+      <circle cx="95" cy="42" r="22" fill="none" stroke="#F2EEE9" stroke-width="10"/>
+      <circle cx="95" cy="42" r="22" fill="none" stroke="#D8D2C6" stroke-width="1.5"/>
+      <circle cx="95" cy="42" r="12" fill="#E4DFD6"/>
+    </g>
+
+    <!-- R2C3 dark books -->
+    <g transform="translate(722 268)">
+      <rect x="0" y="16" width="10" height="54" fill="#2C3E50"/>
+      <rect x="12" y="12" width="9" height="58" fill="#1F2A33"/>
+      <rect x="23" y="20" width="11" height="50" fill="#3B5344"/>
+      <rect x="36" y="14" width="8" height="56" fill="#5D4037"/>
+      <rect x="46" y="18" width="10" height="52" fill="#2C3E50"/>
+      <rect x="58" y="12" width="9" height="58" fill="#7F8C8D"/>
+      <rect x="69" y="20" width="11" height="50" fill="#1F2A33"/>
+      <rect x="82" y="16" width="8" height="54" fill="#3B5344"/>
+      <rect x="92" y="14" width="10" height="56" fill="#2C3E50"/>
+      <rect x="104" y="18" width="9" height="52" fill="#5D4037"/>
+      <rect x="115" y="12" width="11" height="58" fill="#1F2A33"/>
+      <rect x="128" y="20" width="8" height="50" fill="#7F8C8D"/>
+      <rect x="138" y="16" width="10" height="54" fill="#2C3E50"/>
+    </g>
+
+    <!-- R3C1 books -->
+    <g transform="translate(330 384)">
+      <rect x="0" y="16" width="10" height="54" fill="#5D4037"/>
+      <rect x="12" y="22" width="8" height="48" fill="#3B5344"/>
+      <rect x="22" y="14" width="11" height="56" fill="#2C3E50"/>
+      <rect x="35" y="18" width="9" height="52" fill="#C4A574"/>
+      <rect x="46" y="12" width="10" height="58" fill="#A65A45"/>
+      <rect x="58" y="20" width="8" height="50" fill="#7F8C8D"/>
+      <rect x="68" y="16" width="11" height="54" fill="#3B5344"/>
+      <rect x="81" y="22" width="9" height="48" fill="#5D4037"/>
+      <rect x="92" y="14" width="10" height="56" fill="#2C3E50"/>
+      <rect x="104" y="18" width="8" height="52" fill="#8B5A3C"/>
+      <rect x="114" y="12" width="11" height="58" fill="#3B5344"/>
+      <rect x="127" y="20" width="9" height="50" fill="#7F8C8D"/>
+      <rect x="138" y="16" width="10" height="54" fill="#5D4037"/>
+    </g>
+
+    <!-- R3C2 grey vase + books -->
+    <g transform="translate(528 380)">
+      <path d="M18 70 C8 40 14 20 22 16 L38 16 C46 20 52 40 42 70Z" fill="#7F8C8D"/>
+      <ellipse cx="30" cy="16" rx="10" ry="4" fill="#95A1A2"/>
+      <rect x="70" y="22" width="10" height="50" fill="#2C3E50"/>
+      <rect x="82" y="16" width="9" height="56" fill="#5D4037"/>
+      <rect x="93" y="24" width="11" height="48" fill="#3B5344"/>
+      <rect x="106" y="18" width="8" height="54" fill="#C4A574"/>
+      <rect x="116" y="22" width="10" height="50" fill="#A65A45"/>
+      <rect x="128" y="16" width="9" height="56" fill="#2C3E50"/>
+    </g>
+
+    <!-- R3C3 books + white jar -->
+    <g transform="translate(722 384)">
+      <rect x="0" y="16" width="10" height="54" fill="#2C3E50"/>
+      <rect x="12" y="20" width="9" height="50" fill="#3B5344"/>
+      <rect x="23" y="14" width="11" height="56" fill="#5D4037"/>
+      <rect x="36" y="18" width="8" height="52" fill="#7F8C8D"/>
+      <rect x="46" y="12" width="10" height="58" fill="#A65A45"/>
+      <rect x="58" y="20" width="9" height="50" fill="#2C3E50"/>
+      <rect x="69" y="16" width="11" height="54" fill="#C4A574"/>
+      <rect x="82" y="22" width="8" height="48" fill="#3B5344"/>
+      <rect x="92" y="14" width="10" height="56" fill="#5D4037"/>
+      <rect x="118" y="40" width="28" height="30" rx="4" fill="#F7F3EC" stroke="#D0C8BA" stroke-width="1.2"/>
+      <rect x="126" y="34" width="12" height="8" fill="#EFE9DF" stroke="#D0C8BA" stroke-width="1"/>
+    </g>
+
+    <!-- R4C1 books -->
+    <g transform="translate(330 500)">
+      <rect x="0" y="18" width="10" height="52" fill="#3B5344"/>
+      <rect x="12" y="12" width="9" height="58" fill="#5D4037"/>
+      <rect x="23" y="20" width="11" height="50" fill="#2C3E50"/>
+      <rect x="36" y="14" width="8" height="56" fill="#C4A574"/>
+      <rect x="46" y="18" width="10" height="52" fill="#8B5A3C"/>
+      <rect x="58" y="12" width="9" height="58" fill="#3B5344"/>
+      <rect x="69" y="20" width="11" height="50" fill="#7F8C8D"/>
+      <rect x="82" y="16" width="8" height="54" fill="#A65A45"/>
+      <rect x="92" y="12" width="10" height="58" fill="#2C3E50"/>
+      <rect x="104" y="18" width="9" height="52" fill="#5D4037"/>
+      <rect x="115" y="14" width="11" height="56" fill="#3B5344"/>
+      <rect x="128" y="20" width="8" height="50" fill="#C4A574"/>
+      <rect x="138" y="16" width="10" height="54" fill="#8B5A3C"/>
+    </g>
+
+    <!-- R4C2 horizontal stack + uprights -->
+    <g transform="translate(528 508)">
+      <rect x="4" y="48" width="52" height="10" fill="#5D4037"/>
+      <rect x="8" y="36" width="48" height="10" fill="#2C3E50"/>
+      <rect x="6" y="24" width="50" height="10" fill="#3B5344"/>
+      <rect x="22" y="16" width="16" height="8" fill="#F7F3EC" stroke="#D0C8BA" stroke-width="1"/>
+      <rect x="78" y="18" width="10" height="50" fill="#A65A45"/>
+      <rect x="90" y="12" width="9" height="56" fill="#7F8C8D"/>
+      <rect x="101" y="20" width="11" height="48" fill="#2C3E50"/>
+      <rect x="114" y="16" width="8" height="52" fill="#5D4037"/>
+      <rect x="124" y="12" width="10" height="56" fill="#C4A574"/>
+    </g>
+
+    <!-- R4C3 plant + landscape frame -->
+    <g transform="translate(722 498)">
+      <rect x="6" y="52" width="22" height="16" fill="#F7F3EC" stroke="#D0C8BA" stroke-width="1"/>
+      <ellipse cx="17" cy="42" rx="10" ry="8" fill="#5C8A62"/>
+      <ellipse cx="8" cy="46" rx="6" ry="5" fill="#6B9A6E"/>
+      <rect x="50" y="18" width="90" height="58" fill="#E8D9B8" stroke="#B5965E" stroke-width="4"/>
+      <rect x="56" y="24" width="78" height="46" fill="#B7C9C4"/>
+      <path d="M56 58 Q78 40 96 48 T134 42 L134 70 L56 70Z" fill="#6B8A72"/>
+      <circle cx="118" cy="34" r="6" fill="#E8C98A"/>
+    </g>
+
+    <!-- R5 dense books all three -->
+    <g transform="translate(330 616)">
+      <rect x="0" y="20" width="9" height="68" fill="#2C3E50"/>
+      <rect x="11" y="14" width="10" height="74" fill="#5D4037"/>
+      <rect x="23" y="22" width="8" height="66" fill="#3B5344"/>
+      <rect x="33" y="16" width="11" height="72" fill="#7F8C8D"/>
+      <rect x="46" y="24" width="9" height="64" fill="#A65A45"/>
+      <rect x="57" y="18" width="10" height="70" fill="#2C3E50"/>
+      <rect x="69" y="22" width="8" height="66" fill="#C4A574"/>
+      <rect x="79" y="14" width="11" height="74" fill="#3B5344"/>
+      <rect x="92" y="20" width="9" height="68" fill="#5D4037"/>
+      <rect x="103" y="16" width="10" height="72" fill="#8B5A3C"/>
+      <rect x="115" y="22" width="8" height="66" fill="#2C3E50"/>
+      <rect x="125" y="18" width="11" height="70" fill="#7F8C8D"/>
+      <rect x="138" y="24" width="9" height="64" fill="#3B5344"/>
+      <rect x="149" y="16" width="10" height="72" fill="#5D4037"/>
+    </g>
+    <g transform="translate(524 616)">
+      <rect x="0" y="18" width="10" height="70" fill="#5D4037"/>
+      <rect x="12" y="14" width="9" height="74" fill="#2C3E50"/>
+      <rect x="23" y="22" width="11" height="66" fill="#3B5344"/>
+      <rect x="36" y="16" width="8" height="72" fill="#A65A45"/>
+      <rect x="46" y="20" width="10" height="68" fill="#7F8C8D"/>
+      <rect x="58" y="14" width="9" height="74" fill="#C4A574"/>
+      <rect x="69" y="22" width="11" height="66" fill="#2C3E50"/>
+      <rect x="82" y="18" width="8" height="70" fill="#5D4037"/>
+      <rect x="92" y="14" width="10" height="74" fill="#3B5344"/>
+      <rect x="104" y="20" width="9" height="68" fill="#8B5A3C"/>
+      <rect x="115" y="16" width="11" height="72" fill="#2C3E50"/>
+      <rect x="128" y="22" width="8" height="66" fill="#7F8C8D"/>
+      <rect x="138" y="18" width="10" height="70" fill="#5D4037"/>
+      <rect x="150" y="14" width="9" height="74" fill="#A65A45"/>
+    </g>
+    <g transform="translate(718 616)">
+      <rect x="0" y="20" width="9" height="68" fill="#3B5344"/>
+      <rect x="11" y="14" width="10" height="74" fill="#2C3E50"/>
+      <rect x="23" y="22" width="8" height="66" fill="#5D4037"/>
+      <rect x="33" y="16" width="11" height="72" fill="#7F8C8D"/>
+      <rect x="46" y="24" width="9" height="64" fill="#C4A574"/>
+      <rect x="57" y="18" width="10" height="70" fill="#A65A45"/>
+      <rect x="69" y="22" width="8" height="66" fill="#2C3E50"/>
+      <rect x="79" y="14" width="11" height="74" fill="#3B5344"/>
+      <rect x="92" y="20" width="9" height="68" fill="#5D4037"/>
+      <rect x="103" y="16" width="10" height="72" fill="#8B5A3C"/>
+      <rect x="115" y="22" width="8" height="66" fill="#7F8C8D"/>
+      <rect x="125" y="18" width="11" height="70" fill="#2C3E50"/>
+      <rect x="138" y="24" width="9" height="64" fill="#3B5344"/>
+      <rect x="149" y="16" width="10" height="72" fill="#5D4037"/>
+    </g>
+  </g>
+</svg>
