@@ -1,0 +1,349 @@
+:root {
+  --bg: #120e18;
+  --panel: #1b1424;
+  --panel-2: #241b31;
+  --line: #3d2f52;
+  --mint: #7dcea0;
+  --lamp: #f3c98b;
+  --rose: #e07a5f;
+  --sky: #7ec8e3;
+  --text: #f4efe8;
+  --muted: #a89bb8;
+  --pixel: 'Pixelify Sans', 'Segoe UI', sans-serif;
+  --mono: 'VT323', 'Courier New', monospace;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  min-height: 100%;
+}
+
+body {
+  color: var(--text);
+  background:
+    radial-gradient(800px 400px at 20% 0%, rgba(125, 206, 160, 0.08), transparent 50%),
+    radial-gradient(700px 380px at 90% 20%, rgba(243, 201, 139, 0.07), transparent 45%),
+    var(--bg);
+  font-family: var(--pixel);
+  image-rendering: pixelated;
+  overflow-x: hidden;
+}
+
+.scanlines {
+  pointer-events: none;
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  background: repeating-linear-gradient(
+    to bottom,
+    rgba(255, 255, 255, 0.015),
+    rgba(255, 255, 255, 0.015) 1px,
+    transparent 1px,
+    transparent 3px
+  );
+  mix-blend-mode: soft-light;
+}
+
+.topbar {
+  padding: 1.1rem 1.25rem 0.4rem;
+  text-align: center;
+}
+
+.brand {
+  margin: 0;
+  font-size: clamp(1.4rem, 3vw, 2rem);
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  color: var(--lamp);
+  text-shadow: 0 0 0 #000, 2px 2px 0 #000;
+  animation: pop-in 500ms steps(4, end) both;
+}
+
+.tag {
+  margin: 0.35rem 0 0;
+  font-family: var(--mono);
+  font-size: 1.15rem;
+  color: var(--muted);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.stage {
+  width: min(1120px, calc(100% - 1.5rem));
+  margin: 0.75rem auto 1.5rem;
+  display: grid;
+  grid-template-columns: 1.35fr 0.9fr;
+  gap: 1rem;
+  align-items: start;
+}
+
+.world {
+  min-width: 0;
+}
+
+.room-frame {
+  border: 4px solid #000;
+  box-shadow:
+    0 0 0 4px var(--line),
+    8px 8px 0 #000;
+  background: #000;
+  overflow: hidden;
+  animation: pop-in 700ms 80ms steps(5, end) both;
+}
+
+.room {
+  display: block;
+  width: 100%;
+  height: auto;
+  image-rendering: pixelated;
+  background: #1a2233;
+}
+
+.avatar {
+  animation: bob 1.2s steps(2, end) infinite;
+}
+
+.prompt {
+  animation: blink 1.4s steps(2, end) infinite;
+}
+
+.hint {
+  margin: 0.75rem 0 0;
+  font-family: var(--mono);
+  font-size: 1.2rem;
+  color: var(--muted);
+  text-align: center;
+}
+
+.panel {
+  border: 4px solid #000;
+  background: linear-gradient(180deg, var(--panel-2), var(--panel));
+  box-shadow:
+    0 0 0 4px var(--line),
+    8px 8px 0 #000;
+  padding: 0.85rem;
+  animation: pop-in 700ms 140ms steps(5, end) both;
+}
+
+.panel-title {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  font-family: var(--mono);
+  font-size: 1.2rem;
+  color: var(--mint);
+  border-bottom: 3px solid var(--line);
+  padding-bottom: 0.45rem;
+  margin-bottom: 0.75rem;
+  letter-spacing: 0.04em;
+}
+
+.hp {
+  color: var(--lamp);
+}
+
+.pixel-search {
+  display: grid;
+  gap: 0.3rem;
+  margin-bottom: 0.75rem;
+  font-family: var(--mono);
+  font-size: 1.1rem;
+  color: var(--muted);
+}
+
+.pixel-search input {
+  width: 100%;
+  border: 3px solid #000;
+  background: #0d0a12;
+  color: var(--text);
+  font-family: var(--mono);
+  font-size: 1.25rem;
+  padding: 0.45rem 0.55rem;
+  outline: none;
+  box-shadow: inset 3px 3px 0 rgba(255, 255, 255, 0.04);
+}
+
+.pixel-search input:focus {
+  border-color: var(--mint);
+}
+
+.tabs {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0.35rem;
+  margin-bottom: 0.75rem;
+}
+
+.tab {
+  border: 3px solid #000;
+  background: #120e18;
+  color: var(--muted);
+  font-family: var(--pixel);
+  font-weight: 600;
+  font-size: 0.85rem;
+  padding: 0.4rem 0.2rem;
+  cursor: pointer;
+}
+
+.tab.is-on,
+.tab:hover {
+  background: var(--mint);
+  color: #102018;
+}
+
+.inv {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 0.4rem;
+}
+
+.inv li {
+  display: grid;
+  grid-template-columns: 28px 1fr;
+  gap: 0.55rem;
+  align-items: center;
+  padding: 0.45rem;
+  border: 3px solid #000;
+  background: rgba(0, 0, 0, 0.28);
+  transition: transform 80ms steps(1, end);
+}
+
+.inv li:hover {
+  transform: translate(-2px, -2px);
+  background: rgba(125, 206, 160, 0.08);
+}
+
+.book-icon {
+  width: 22px;
+  height: 28px;
+  border: 2px solid #000;
+  box-shadow: inset -3px 0 0 rgba(0, 0, 0, 0.25);
+}
+
+.book-icon.red {
+  background: #c45c6a;
+}
+.book-icon.green {
+  background: #6b8f71;
+}
+.book-icon.blue {
+  background: #4a6fa5;
+}
+.book-icon.gold {
+  background: #d9b45a;
+}
+
+.inv strong {
+  display: block;
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.inv small {
+  display: block;
+  margin-top: 0.1rem;
+  font-family: var(--mono);
+  font-size: 1.05rem;
+  color: var(--muted);
+}
+
+.panel-actions {
+  display: grid;
+  grid-template-columns: 1.3fr 0.7fr;
+  gap: 0.45rem;
+  margin-top: 0.85rem;
+}
+
+.px-btn {
+  border: 3px solid #000;
+  background: #2a2238;
+  color: var(--text);
+  font-family: var(--pixel);
+  font-weight: 700;
+  font-size: 0.9rem;
+  padding: 0.55rem 0.4rem;
+  cursor: pointer;
+  box-shadow: 3px 3px 0 #000;
+}
+
+.px-btn:hover {
+  transform: translate(-1px, -1px);
+  box-shadow: 4px 4px 0 #000;
+}
+
+.px-btn:active {
+  transform: translate(2px, 2px);
+  box-shadow: 1px 1px 0 #000;
+}
+
+.px-btn.primary {
+  background: var(--rose);
+  color: #1b1424;
+}
+
+.foot {
+  text-align: center;
+  padding: 0.5rem 1rem 1.5rem;
+  font-family: var(--mono);
+  font-size: 1.1rem;
+  color: var(--muted);
+}
+
+@keyframes bob {
+  0%,
+  100% {
+    transform: translate(128px, 132px);
+  }
+  50% {
+    transform: translate(128px, 130px);
+  }
+}
+
+@keyframes blink {
+  0%,
+  49% {
+    opacity: 1;
+  }
+  50%,
+  100% {
+    opacity: 0.15;
+  }
+}
+
+@keyframes pop-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@media (max-width: 900px) {
+  .stage {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .avatar,
+  .prompt,
+  .brand,
+  .room-frame,
+  .panel {
+    animation: none;
+  }
+}
