@@ -19,37 +19,32 @@
     </header>
 
     <main class="stage">
-      <div class="frame" id="stage">
-        <!-- Exact source illustration -->
+      <div class="frame is-plate" id="stage">
         <img
           id="plate"
           class="art plate"
           src="./room.png"
-          alt="Vector-style home library: cream 3 by 5 bookshelf between curtained windows"
+          alt="Source home-library illustration with cream 3 by 5 bookshelf"
           width="1448"
           height="1072"
         />
 
-        <!-- Interactive bay map aligned to the plate’s shelf grid -->
+        <img
+          id="vector"
+          class="art vector"
+          src="./scene.svg"
+          alt="Vector recreation of the home-library room"
+          width="1200"
+          height="900"
+        />
+
         <svg
           id="hits"
           class="hits"
           viewBox="0 0 100 100"
           preserveAspectRatio="none"
           aria-label="Shelf bays"
-        >
-          <!-- Tuned to the plate: shelf face ~ x 31.5–68.5, y 14–78 -->
-        </svg>
-
-        <!-- Pure SVG recreation (hidden until toggled) -->
-        <object
-          id="vector"
-          class="art vector"
-          data="./scene.svg"
-          type="image/svg+xml"
-          aria-label="Vector recreation of the library room"
-          hidden
-        ></object>
+        ></svg>
       </div>
 
       <aside class="panel" aria-live="polite">

@@ -13,11 +13,10 @@ const FRAME = 0.055;
 const GAP_X = 0.03;
 const GAP_Y = 0.026;
 
+const stage = document.getElementById('stage');
 const hits = document.getElementById('hits');
 const title = document.getElementById('bay-title');
 const note = document.getElementById('bay-note');
-const plate = document.getElementById('plate');
-const vector = document.getElementById('vector');
 
 function bayKey(r, c) {
   return `r${r}c${c}`;
@@ -78,16 +77,26 @@ function renderHits() {
   }
 }
 
-document.querySelectorAll('.tog').forEach((btn) => {
-  btn.addEventListener('click', () => {
-    document.querySelectorAll('.tog').forEach((b) => b.classList.remove('is-on'));
-    btn.classList.add('is-on');
-    const mode = btn.dataset.mode;
-    const showPlate = mode === 'plate';
-    plate.hidden = !showPlate;
-    hits.hidden = !showPlate;
-    vector.hidden = showPlate;
+function setMode(mode) {
+  stage.classList.toggle('is-plate', mode === 'plate');
+  stage.classList.toggle('is-vector', mode === 'vector');
+  document.querySelectorAll('.tog').forEach((b) => {
+    b.classList.toggle('is-on', b.dataset.mode === mode);
   });
+  if (mode === 'vector') {
+    title.textContent = 'Vector twin';
+    note.textContent =
+      'SVG recreation of the same room: cream 3×5 case, windows, curtains, books, and décor.';
+  } else {
+    title.textContent = 'Tap a shelf';
+    note.textContent =
+      'Fifteen compartments on the cream unit — empty of catalogue data for now, ready to open.';
+  }
+}
+
+document.querySelectorAll('.tog').forEach((btn) => {
+  btn.addEventListener('click', () => setMode(btn.dataset.mode));
 });
 
 renderHits();
+setMode('plate');
