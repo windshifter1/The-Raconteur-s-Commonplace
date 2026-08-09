@@ -196,7 +196,7 @@ function css() {
     '.top td{vertical-align:middle;padding:0;}',
     '.brand{font-size:28px;line-height:1.1;margin:0;}',
     '.kicker{font-size:11px;letter-spacing:0.14em;text-transform:uppercase;margin:8px 0 0 0;}',
-    '.btn-full{border:2px solid #000;background:#000;color:#fff;padding:12px 16px;font-size:15px;font-family:Georgia,"Times New Roman",serif;cursor:pointer;white-space:nowrap;}',
+    '.btn-full{display:inline-block;border:2px solid #000;background:#000;color:#fff;padding:12px 16px;font-size:15px;font-family:Georgia,"Times New Roman",serif;cursor:pointer;white-space:nowrap;text-decoration:none;}',
     '.nav{width:100%;margin:0 0 16px 0;}',
     '.nav td{padding:0 6px 0 0;width:33%;}',
     '.navbtn{display:block;width:100%;border:2px solid #000;background:#fff;color:#000;padding:16px 6px;font-size:18px;font-family:Georgia,"Times New Roman",serif;cursor:pointer;}',
@@ -225,8 +225,8 @@ function css() {
 }
 
 function siteHeader(opts) {
-  const actionBase = opts.actionBase;
-  const apiKey = opts.apiKey || '';
+  const pagesHome = String(opts.pagesHome || './').replace(/\/?$/, '/');
+  const fullHref = pagesHome + 'full/';
   return (
     '<table class="top"><tr>' +
     '<td>' +
@@ -234,13 +234,9 @@ function siteHeader(opts) {
     '<p class="kicker">Personal Library Catalogue</p>' +
     '</td>' +
     '<td align="right">' +
-    '<form class="inline" method="post" action="' +
-    escapeAttr(formAction(actionBase, apiKey)) +
-    '">' +
-    '<input type="hidden" name="action" value="view">' +
-    '<input type="hidden" name="view" value="browse">' +
-    '<input class="btn-full" type="submit" value="Full Experience">' +
-    '</form>' +
+    '<a class="btn-full" href="' +
+    escapeAttr(fullHref) +
+    '">Full Experience</a>' +
     '</td>' +
     '</tr></table>\n'
   );
