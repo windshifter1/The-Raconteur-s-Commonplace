@@ -86,7 +86,7 @@ function setMode(mode) {
   if (mode === 'vector') {
     title.textContent = 'Vector twin';
     note.textContent =
-      'SVG recreation of the same room: cream 3×5 case, windows, curtains, books, and décor.';
+      'Stepped warm-wood unit from the photo proportions: skinny tall center, wider side wings, thin planks.';
   } else {
     title.textContent = 'Tap a shelf';
     note.textContent =
