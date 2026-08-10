@@ -773,7 +773,7 @@ button {
   border-color: #d89e59;
 }
 
-.is-editing .search-shell {
+.is-editing .search-dock {
   opacity: 0.35;
   pointer-events: none;
 }
@@ -842,14 +842,16 @@ button {
   pointer-events: none;
 }
 
-.brand-mark {
-  display: block;
-  width: 56px;
-  height: 56px;
-  image-rendering: pixelated;
-  image-rendering: crisp-edges;
-  flex-shrink: 0;
-  filter: drop-shadow(3px 3px 0 rgba(38, 25, 25, 0.55));
+.monogram {
+  display: grid;
+  width: 42px;
+  height: 42px;
+  place-items: center;
+  border: 2px solid rgba(235, 193, 120, 0.72);
+  background: rgba(48, 35, 33, 0.62);
+  color: #e6b969;
+  font: 700 17px var(--font-display);
+  box-shadow: 4px 4px 0 rgba(38, 25, 25, 0.5);
 }
 
 .wordmark-title {
@@ -893,115 +895,16 @@ button {
   transform: translateY(-2px);
 }
 
-.search-shell {
+.search-dock {
   position: absolute;
   z-index: 25;
   right: clamp(15px, 8vw, 140px);
   bottom: clamp(20px, 6vh, 70px);
   left: clamp(15px, 8vw, 140px);
   display: flex;
-  flex-direction: column;
-  gap: 10px;
-  max-width: 980px;
+  align-items: stretch;
+  max-width: 950px;
   margin: auto;
-  pointer-events: none;
-}
-
-.search-shell > * {
-  pointer-events: auto;
-}
-
-.search-results {
-  max-height: min(42vh, 360px);
-  overflow: auto;
-  padding: 14px 16px 12px;
-  background: rgba(35, 27, 28, 0.94);
-  border: 2px solid rgba(215, 157, 87, 0.56);
-  box-shadow: 0 11px 0 rgba(25, 18, 21, 0.46), 0 18px 42px rgba(11, 16, 19, 0.36);
-}
-
-.search-results[hidden] {
-  display: none !important;
-}
-
-.search-results-head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  margin-bottom: 8px;
-}
-
-.search-results-kicker {
-  margin: 0;
-  color: #e6b969;
-  font: 700 10px var(--font-pixel);
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
-}
-
-.search-results-close {
-  padding: 4px 10px;
-  color: #f2d7a2;
-  background: rgba(48, 35, 33, 0.85);
-  border: 2px solid rgba(215, 157, 87, 0.45);
-  font: 700 9px var(--font-pixel);
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-}
-
-.search-results-status {
-  margin: 0 0 10px;
-  color: rgba(236, 200, 139, 0.78);
-  font: 11px var(--font-pixel);
-}
-
-.search-results-list {
-  margin: 0;
-  padding: 0;
-  list-style: none;
-  display: grid;
-  gap: 8px;
-}
-
-.search-result-item {
-  padding: 10px 12px;
-  background: rgba(48, 35, 33, 0.72);
-  border: 2px solid rgba(215, 157, 87, 0.28);
-}
-
-.search-result-title {
-  margin: 0;
-  color: #f2d7a2;
-  font: 400 18px / 1.15 var(--font-display);
-}
-
-.search-result-author {
-  margin: 4px 0 0;
-  color: #d89e59;
-  font: 700 10px var(--font-pixel);
-  letter-spacing: 0.04em;
-}
-
-.search-result-meta {
-  margin: 6px 0 0;
-  color: rgba(236, 200, 139, 0.62);
-  font: 9px var(--font-pixel);
-  letter-spacing: 0.03em;
-}
-
-.search-bar {
-  display: flex;
-  align-items: stretch;
-  gap: 10px;
-}
-
-.search-dock {
-  position: relative;
-  display: flex;
-  align-items: stretch;
-  flex: 1;
-  min-width: 0;
   padding: 6px;
   background: rgba(35, 27, 28, 0.86);
   border: 2px solid rgba(215, 157, 87, 0.56);
@@ -1012,7 +915,7 @@ button {
   min-width: 0;
   flex: 1;
   height: 50px;
-  padding: 0 12px 0 44px;
+  padding: 0 16px 0 44px;
   color: #f4dfb0;
   background: transparent;
   border: 0;
@@ -1028,19 +931,16 @@ button {
 .search-icon {
   position: absolute;
   left: 21px;
-  top: 50%;
-  transform: translateY(-50%);
+  top: 23px;
   color: #dca460;
-  pointer-events: none;
 }
 
-.dock-button,
 .explore-button {
   display: inline-flex;
   align-items: center;
   justify-content: center;
   gap: 9px;
-  min-width: 118px;
+  min-width: 150px;
   padding: 0 17px;
   color: #322021;
   background: #d89e59;
@@ -1048,22 +948,14 @@ button {
   font: 700 11px var(--font-pixel);
   text-transform: uppercase;
   letter-spacing: 0.09em;
-  text-decoration: none;
   cursor: var(--cursor-active);
   box-shadow: inset 0 -4px 0 rgba(93, 48, 37, 0.28);
   transition: filter 0.18s, transform 0.18s;
 }
 
-.dock-button:hover,
 .explore-button:hover {
   filter: brightness(1.1);
   transform: translateY(-2px);
-}
-
-.explore-button {
-  min-width: 132px;
-  border: 2px solid rgba(215, 157, 87, 0.85);
-  box-shadow: 0 11px 0 rgba(25, 18, 21, 0.46), inset 0 -4px 0 rgba(93, 48, 37, 0.28);
 }
 
 @keyframes drift {
@@ -1115,14 +1007,10 @@ button {
     width: auto;
   }
 
-  .search-shell {
+  .search-dock {
     right: 12px;
     bottom: 15px;
     left: 12px;
-  }
-
-  .search-bar {
-    flex-wrap: wrap;
   }
 
   .search-dock input {
@@ -1132,20 +1020,15 @@ button {
   }
 
   .search-icon {
+    top: 20px;
     left: 16px;
     width: 15px;
   }
 
-  .dock-button,
   .explore-button {
-    min-width: 96px;
+    min-width: 105px;
     padding: 0 9px;
     font-size: 9px;
-  }
-
-  .explore-button {
-    flex: 1 1 100%;
-    min-height: 42px;
   }
 
   .wordmark-title {
@@ -1157,20 +1040,14 @@ button {
     font-size: 7px;
   }
 
-  .brand-mark {
-    width: 44px;
-    height: 44px;
+  .monogram {
+    width: 35px;
+    height: 35px;
+    font-size: 15px;
   }
 
   .quiet-tools {
     top: 18px;
     right: 16px;
   }
-}
-
-/* View-only full experience — edit chrome is not in the markup. */
-.quiet-tools,
-.edit-panel,
-.edit-overlay {
-  display: none !important;
 }

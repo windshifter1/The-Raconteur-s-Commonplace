@@ -8,3 +8,5 @@ kobo-dist
 .env.*.local
 .supabase-token
 .vite
+full/config.js
+explore/config.js

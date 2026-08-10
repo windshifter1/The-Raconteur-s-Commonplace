@@ -6,6 +6,7 @@
   "scripts": {
     "build": "node kobo/build.mjs && node scripts/copy-full.mjs",
     "build:kobo": "node kobo/build.mjs",
-    "build:full": "node scripts/copy-full.mjs"
+    "build:full": "node scripts/copy-full.mjs",
+    "config:runtime": "node scripts/write-runtime-config.mjs"
   }
 }

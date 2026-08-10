@@ -1,0 +1,317 @@
+/* Explore mockup — same wood / ember / pixel language as Walk the Shelves */
+
+:root {
+  --font-display: 'DM Serif Display', Georgia, serif;
+  --font-body: 'Manrope', sans-serif;
+  --font-pixel: 'Space Mono', monospace;
+  --ember: #e4a557;
+  --gold: #f2d7a2;
+  --ink: #322021;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  min-width: 320px;
+  min-height: 100%;
+}
+
+body {
+  color: #f0dfb6;
+  font-family: var(--font-body);
+  background:
+    radial-gradient(ellipse 70% 50% at 20% 0%, rgba(232, 164, 87, 0.12), transparent 55%),
+    radial-gradient(ellipse 60% 45% at 90% 10%, rgba(163, 100, 122, 0.1), transparent 50%),
+    linear-gradient(180deg, #241816 0%, #1a1210 42%, #15100f 100%);
+}
+
+a {
+  color: inherit;
+}
+
+button,
+input {
+  font: inherit;
+}
+
+.explore-page {
+  position: relative;
+  min-height: 100dvh;
+  padding: clamp(18px, 4vw, 48px);
+  overflow-x: hidden;
+}
+
+.explore-page::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  background-image:
+    linear-gradient(rgba(235, 193, 120, 0.03) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(235, 193, 120, 0.03) 1px, transparent 1px);
+  background-size: 24px 24px;
+  mask-image: linear-gradient(180deg, rgba(0, 0, 0, 0.55), transparent 75%);
+}
+
+.explore-top {
+  position: relative;
+  z-index: 2;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 18px;
+  flex-wrap: wrap;
+  margin-bottom: clamp(28px, 5vh, 56px);
+}
+
+.wordmark {
+  display: flex;
+  align-items: center;
+  gap: 13px;
+  text-shadow: 2px 3px 0 rgba(30, 22, 23, 0.52);
+}
+
+.brand-mark {
+  display: block;
+  width: 56px;
+  height: 56px;
+  image-rendering: pixelated;
+  image-rendering: crisp-edges;
+  flex-shrink: 0;
+  filter: drop-shadow(3px 3px 0 rgba(38, 25, 25, 0.55));
+}
+
+.wordmark-title {
+  font: 400 clamp(20px, 2.4vw, 31px) / 0.93 var(--font-display);
+  letter-spacing: 0.01em;
+  color: var(--gold);
+}
+
+.wordmark-sub {
+  margin-top: 8px;
+  color: rgba(236, 200, 139, 0.7);
+  font: 8px var(--font-pixel);
+  letter-spacing: 0.17em;
+  text-transform: uppercase;
+}
+
+.walk-button,
+.solid-cta,
+.ghost-cta,
+.mock-search button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 9px;
+  min-height: 44px;
+  padding: 0 16px;
+  border: 2px solid rgba(215, 157, 87, 0.7);
+  font: 700 11px var(--font-pixel);
+  text-transform: uppercase;
+  letter-spacing: 0.09em;
+  text-decoration: none;
+  cursor: pointer;
+  transition: filter 0.18s, transform 0.18s;
+}
+
+.walk-button,
+.solid-cta {
+  color: var(--ink);
+  background: #d89e59;
+  box-shadow: 4px 4px 0 rgba(25, 18, 21, 0.55), inset 0 -4px 0 rgba(93, 48, 37, 0.28);
+}
+
+.walk-button:hover,
+.solid-cta:hover {
+  filter: brightness(1.08);
+  transform: translateY(-2px);
+}
+
+.ghost-cta {
+  margin-top: auto;
+  color: var(--gold);
+  background: rgba(48, 35, 33, 0.72);
+  box-shadow: 3px 3px 0 rgba(25, 18, 21, 0.45);
+}
+
+.ghost-cta:disabled,
+.mock-search button:disabled,
+.mock-search input:disabled {
+  opacity: 0.72;
+  cursor: not-allowed;
+}
+
+.explore-main {
+  position: relative;
+  z-index: 1;
+  max-width: 1100px;
+}
+
+.hero-copy {
+  margin-bottom: clamp(22px, 4vh, 36px);
+  max-width: 38rem;
+}
+
+.kicker,
+.tile-kicker {
+  margin: 0 0 8px;
+  color: #e6b969;
+  font: 700 10px var(--font-pixel);
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+
+.hero-copy h1 {
+  margin: 0;
+  color: var(--gold);
+  font: 400 clamp(32px, 5vw, 52px) / 0.95 var(--font-display);
+}
+
+.lede {
+  margin: 14px 0 0;
+  max-width: 34rem;
+  color: rgba(236, 200, 139, 0.78);
+  font: 15px / 1.55 var(--font-body);
+}
+
+.feature-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.feature-tile {
+  display: flex;
+  flex-direction: column;
+  min-height: 210px;
+  padding: 18px 18px 16px;
+  background: rgba(35, 27, 28, 0.88);
+  border: 2px solid rgba(215, 157, 87, 0.42);
+  box-shadow: 0 8px 0 rgba(25, 18, 21, 0.42);
+}
+
+.feature-tile--wide {
+  grid-column: 1 / -1;
+  min-height: 0;
+}
+
+.feature-tile--accent {
+  border-color: rgba(189, 98, 86, 0.55);
+}
+
+.feature-tile h2 {
+  margin: 0;
+  color: var(--gold);
+  font: 400 26px / 1.05 var(--font-display);
+}
+
+.feature-tile > p:not(.tile-kicker) {
+  margin: 10px 0 16px;
+  color: rgba(236, 200, 139, 0.72);
+  font: 14px / 1.5 var(--font-body);
+}
+
+.mock-search {
+  display: flex;
+  align-items: stretch;
+  gap: 0;
+  margin-top: 4px;
+  padding: 6px;
+  background: rgba(26, 18, 16, 0.72);
+  border: 2px solid rgba(215, 157, 87, 0.5);
+  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.25);
+}
+
+.mock-search .mock-icon {
+  width: 18px;
+  height: 18px;
+  margin: auto 10px auto 8px;
+  border: 2px solid #dca460;
+  border-radius: 50%;
+  box-shadow: 5px 5px 0 -3px #dca460;
+  flex-shrink: 0;
+}
+
+.mock-search input {
+  flex: 1;
+  min-width: 0;
+  height: 44px;
+  padding: 0 10px 0 0;
+  color: #f4dfb0;
+  background: transparent;
+  border: 0;
+  outline: 0;
+  font: 12px var(--font-pixel);
+}
+
+.mock-search button {
+  min-width: 110px;
+  border: 0;
+  color: var(--ink);
+  background: #d89e59;
+  box-shadow: inset 0 -4px 0 rgba(93, 48, 37, 0.28);
+}
+
+.shelf-strip {
+  display: flex;
+  gap: 6px;
+  margin: 0 0 16px;
+}
+
+.shelf-strip i {
+  display: block;
+  width: 14px;
+  height: 36px;
+  border: 2px solid #1a1210;
+  box-shadow: inset 0 2px 0 rgba(255, 255, 255, 0.12);
+}
+
+.shelf-strip i:nth-child(1) {
+  background: #bd6256;
+}
+.shelf-strip i:nth-child(2) {
+  background: #67886d;
+  height: 42px;
+}
+.shelf-strip i:nth-child(3) {
+  background: #8a4035;
+  height: 30px;
+}
+.shelf-strip i:nth-child(4) {
+  background: #a3647a;
+}
+.shelf-strip i:nth-child(5) {
+  background: #ce9551;
+  height: 40px;
+}
+
+@media (max-width: 900px) {
+  .feature-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 640px) {
+  .feature-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .brand-mark {
+    width: 44px;
+    height: 44px;
+  }
+
+  .mock-search {
+    flex-wrap: wrap;
+  }
+
+  .mock-search button {
+    flex: 1 1 100%;
+  }
+}

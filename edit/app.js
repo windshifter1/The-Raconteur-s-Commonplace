@@ -1,12 +1,7 @@
 /**
- * Full Experience — view-only 3D bookshelf (baked library).
- * Editable studio lives in edit/.
+ * Full Experience — 3D library with multi-unit editable bookshelves
  */
 
-import bakedLibrary from './library.js';
-import { bindSearchUi } from './search.js';
-
-const VIEW_ONLY = true;
 const STORAGE_KEY = 'trc-full-library-v2';
 const LEGACY_KEY = 'trc-mockup6-library-v1';
 const bookColors = ['#bd6256', '#597e9d', '#ce9551', '#67886d', '#a3647a', '#a68a62', '#4c7779'];
@@ -161,26 +156,23 @@ function migrate(parsed) {
   return defaultState();
 }
 
-let state = defaultState();
-/** View-only: always false — never call setEditing(true). */
+function loadState() {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY) || localStorage.getItem(LEGACY_KEY);
+    if (!raw) return defaultState();
+    const state = migrate(JSON.parse(raw));
+    resolveAllOverlaps(state.units);
+    return state;
+  } catch {
+    return defaultState();
+  }
+}
+
+let state = loadState();
 let editing = false;
 let selected = { type: null, unitId: null, shelfId: null, boxId: null };
 let drag = null;
 let overlayRaf = 0;
-
-async function boot() {
-  try {
-    if (bakedLibrary) state = migrate(structuredClone(bakedLibrary));
-    else {
-      const res = await fetch('./library.json', { cache: 'no-store' });
-      if (res.ok) state = migrate(await res.json());
-    }
-  } catch {}
-
-  sanitizeState(state);
-  buildScene();
-  if (reduceMotion) apply();
-}
 
 /**
  * Fit the unit placement plane inside the back wall at a fixed aspect ratio.
@@ -251,7 +243,6 @@ function sanitizeState(next = state) {
 }
 
 function saveState() {
-  if (VIEW_ONLY) return;
   sanitizeState(state);
   localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
 }
@@ -973,7 +964,7 @@ function buildUnitDom(unit, unitIndex) {
 }
 
 function unitEl(id) {
-  return unitLayer?.querySelector(`.px-shelf[data-unit-id="${CSS.escape(id)}"]`) || null;
+  return unitLayer.querySelector(`.px-shelf[data-unit-id="${CSS.escape(id)}"]`);
 }
 
 function applyUnitGeometry(unit) {
@@ -999,7 +990,6 @@ function applyShelfHeights(unit) {
 }
 
 function buildOverlayChrome() {
-  if (!editOverlay || VIEW_ONLY) return;
   editOverlay.innerHTML = '';
   if (!editing || !selected.unitId || !findUnit(selected.unitId)) {
     editOverlay.hidden = true;
@@ -1042,7 +1032,6 @@ function buildOverlayChrome() {
 }
 
 function syncOverlayToSelection() {
-  if (!editOverlay || !stage) return;
   const chrome = editOverlay.querySelector('.unit-chrome');
   if (!chrome || !selected.unitId) return;
   const el = unitEl(selected.unitId);
@@ -1073,12 +1062,11 @@ function scheduleOverlaySync() {
 function buildScene() {
   syncPlacementPlane();
   sanitizeState(state);
-  if (!unitLayer) return;
   unitLayer.innerHTML = '';
-  if (depthInput) depthInput.value = String(state.depth);
-  if (depthOut) depthOut.textContent = String(state.depth);
-  if (edgesInput) edgesInput.value = String(state.edges);
-  if (edgesOut) edgesOut.textContent = String(state.edges);
+  depthInput.value = String(state.depth);
+  depthOut.textContent = String(state.depth);
+  edgesInput.value = String(state.edges);
+  edgesOut.textContent = String(state.edges);
 
   state.units.forEach((unit, i) => {
     clampUnitInPlane(unit);
@@ -1089,14 +1077,11 @@ function buildScene() {
     applyUnitGeometry(unit);
   });
 
-  if (!VIEW_ONLY) {
-    buildOverlayChrome();
-    syncInspector();
-  }
+  buildOverlayChrome();
+  syncInspector();
 }
 
 function syncInspector() {
-  if (VIEW_ONLY || !weightInput || !booksInput || !countInput) return;
   const shelf = selectedShelf();
   const unit = selectedUnit();
   const shelfControls = selected.type === 'shelf' || selected.type === 'box';
@@ -1169,19 +1154,16 @@ function syncInspector() {
 }
 
 function setEditing(on) {
-  if (VIEW_ONLY) return;
   editing = on;
-  world?.classList.toggle('is-editing', on);
-  btnEdit?.classList.toggle('is-active', on);
-  btnEdit?.setAttribute('aria-pressed', on ? 'true' : 'false');
-  if (editPanel) editPanel.hidden = !on;
+  world.classList.toggle('is-editing', on);
+  btnEdit.classList.toggle('is-active', on);
+  btnEdit.setAttribute('aria-pressed', on ? 'true' : 'false');
+  editPanel.hidden = !on;
   if (!on) {
     selected = { type: null, unitId: null, shelfId: null, boxId: null };
     drag = null;
-    if (editOverlay) {
-      editOverlay.hidden = true;
-      editOverlay.innerHTML = '';
-    }
+    editOverlay.hidden = true;
+    editOverlay.innerHTML = '';
   } else if (!selected.unitId && state.units[0]) {
     selected = { type: 'unit', unitId: state.units[0].id, shelfId: null, boxId: null };
   }
@@ -1432,7 +1414,6 @@ function aim(x, y) {
 }
 
 function apply() {
-  if (!world) return;
   world.style.setProperty('--ry', `${current.x * 4}deg`);
   world.style.setProperty('--rx', `${current.y * -2.5}deg`);
   world.style.setProperty('--shift-x', `${current.x * 8}px`);
@@ -1440,45 +1421,570 @@ function apply() {
   scheduleOverlaySync();
 }
 
-if (stage) {
-  stage.addEventListener('pointermove', (e) => {
-    if (drag || e.pointerType === 'touch') return;
-    if (editing) return;
-    const rect = stage.getBoundingClientRect();
-    aim((e.clientX - rect.left) / rect.width * 2 - 1, (e.clientY - rect.top) / rect.height * 2 - 1);
-  });
+stage.addEventListener('pointermove', (e) => {
+  if (drag || e.pointerType === 'touch') return;
+  if (editing) return;
+  const rect = stage.getBoundingClientRect();
+  aim((e.clientX - rect.left) / rect.width * 2 - 1, (e.clientY - rect.top) / rect.height * 2 - 1);
+});
 
-  stage.addEventListener('pointerleave', () => {
-    if (!drag) aim(0, 0);
-  });
+stage.addEventListener('pointerleave', () => {
+  if (!drag) aim(0, 0);
+});
 
-  stage.addEventListener(
-    'touchstart',
-    (e) => {
-      touchStart = { x: e.touches[0].clientX, y: e.touches[0].clientY };
-    },
-    { passive: true },
-  );
+stage.addEventListener(
+  'touchstart',
+  (e) => {
+    touchStart = { x: e.touches[0].clientX, y: e.touches[0].clientY };
+  },
+  { passive: true },
+);
 
-  stage.addEventListener(
-    'touchmove',
-    (e) => {
-      if (editing || drag) return;
-      const t = e.touches[0];
-      aim(
-        Math.max(-1, Math.min(1, (t.clientX - touchStart.x) / 140)),
-        Math.max(-1, Math.min(1, (t.clientY - touchStart.y) / 140)),
-      );
-    },
-    { passive: true },
-  );
-}
+stage.addEventListener(
+  'touchmove',
+  (e) => {
+    if (editing || drag) return;
+    const t = e.touches[0];
+    aim(
+      Math.max(-1, Math.min(1, (t.clientX - touchStart.x) / 140)),
+      Math.max(-1, Math.min(1, (t.clientY - touchStart.y) / 140)),
+    );
+  },
+  { passive: true },
+);
 
 window.addEventListener('resize', () => {
+  // Only refit the plane — never rewrite stored case x/y/w/h from projection.
   syncPlacementPlane();
+  scheduleOverlaySync();
+});
+
+/* ── Edit interactions ── */
+
+function layerPctFromEvent(e) {
+  const wall = unitLayer.getBoundingClientRect();
+  return {
+    wallW: wall.width || 1,
+    wallH: wall.height || 1,
+    xPct: ((e.clientX - wall.left) / (wall.width || 1)) * 100,
+    yPct: ((e.clientY - wall.top) / (wall.height || 1)) * 100,
+  };
+}
+
+function startResizeDrag(unit, edge, e) {
+  const metrics = layerPctFromEvent(e);
+  drag = {
+    type: 'resize',
+    edge,
+    unitId: unit.id,
+    startX: e.clientX,
+    startY: e.clientY,
+    wallW: metrics.wallW,
+    wallH: metrics.wallH,
+    orig: { x: unit.x, y: unit.y, w: unit.w, h: unit.h },
+  };
+  selected = { type: 'unit', unitId: unit.id, shelfId: null, boxId: null };
+  syncInspector();
+  const label = editOverlay.querySelector('.unit-chrome-label');
+  if (label) label.textContent = 'Case';
+}
+
+function startMoveDrag(unit, e) {
+  const metrics = layerPctFromEvent(e);
+  drag = {
+    type: 'move',
+    unitId: unit.id,
+    startX: e.clientX,
+    startY: e.clientY,
+    wallW: metrics.wallW,
+    wallH: metrics.wallH,
+    orig: { x: unit.x, y: unit.y, w: unit.w, h: unit.h },
+  };
+  selected = { type: 'unit', unitId: unit.id, shelfId: null, boxId: null };
+  syncInspector();
+}
+
+function isFrameEdgeClick(pickEl, clientX, clientY) {
+  const rect = pickEl.getBoundingClientRect();
+  const edge = 18;
+  const x = clientX - rect.left;
+  const y = clientY - rect.top;
+  return x <= edge || y <= edge || x >= rect.width - edge || y >= rect.height - edge;
+}
+
+/**
+ * Hit-test which case owns a screen point.
+ * 3D-projected AABBs of adjacent cases often overlap — prefer the frame
+ * whose center is nearest among frames that contain the point.
+ */
+function unitAtPoint(clientX, clientY) {
+  let best = null;
+  let bestDist = Infinity;
+  for (const el of unitLayer.querySelectorAll('.px-shelf')) {
+    const frame = el.querySelector('.shelf-frame') || el;
+    const r = frame.getBoundingClientRect();
+    if (
+      clientX < r.left ||
+      clientX > r.right ||
+      clientY < r.top ||
+      clientY > r.bottom
+    ) {
+      continue;
+    }
+    const cx = (r.left + r.right) / 2;
+    const cy = (r.top + r.bottom) / 2;
+    const dist = Math.hypot(clientX - cx, clientY - cy);
+    if (dist < bestDist) {
+      bestDist = dist;
+      best = findUnit(el.dataset.unitId);
+    }
+  }
+  return best;
+}
+
+/**
+ * Hit-test a storage crate under the pick plane.
+ */
+function boxAtPoint(unitId, clientX, clientY) {
+  const root = unitEl(unitId);
+  if (!root) return null;
+  for (const crate of root.querySelectorAll('.shelf-crate')) {
+    const r = crate.getBoundingClientRect();
+    if (
+      clientX >= r.left &&
+      clientX <= r.right &&
+      clientY >= r.top &&
+      clientY <= r.bottom
+    ) {
+      return { shelfId: crate.dataset.shelfId, boxId: crate.dataset.boxId };
+    }
+  }
+  return null;
+}
+
+/**
+ * Hit-test the visible wood plank (and its drag nub) for a shelf.
+ * Prefers real plank/handle rects; falls back to the bottom wood strip of each row.
+ */
+function woodPlankAtPoint(unitId, clientX, clientY) {
+  const root = unitEl(unitId);
+  if (!root) return null;
+
+  let best = null;
+  let bestDist = Infinity;
+
+  const hitRect = (node, left, top, right, bottom) => {
+    if (clientX < left || clientX > right || clientY < top || clientY > bottom) return;
+    const cx = Math.min(Math.max(clientX, left), right);
+    const cy = Math.min(Math.max(clientY, top), bottom);
+    const dist = Math.hypot(clientX - cx, clientY - cy);
+    if (dist >= bestDist) return;
+    const row = node.closest('.shelf-row') || node;
+    const shelfId = node.dataset.shelfId || row?.dataset.shelfId;
+    if (!shelfId) return;
+    bestDist = dist;
+    best = { shelfId, row, node };
+  };
+
+  for (const row of root.querySelectorAll('.shelf-row')) {
+    const plank = row.querySelector('.shelf-plank');
+    const handle = row.querySelector('.shelf-handle');
+    if (plank) {
+      const r = plank.getBoundingClientRect();
+      if (r.width > 0 && r.height > 0) {
+        const midY = (r.top + r.bottom) / 2;
+        const halfH = Math.max((r.bottom - r.top) / 2, 8);
+        hitRect(plank, r.left - 2, midY - halfH - 4, r.right + 2, midY + halfH + 6);
+      }
+    }
+    if (handle) {
+      const r = handle.getBoundingClientRect();
+      if (r.width > 0 && r.height > 0) {
+        hitRect(handle, r.left - 2, r.top - 2, r.right + 2, r.bottom + 2);
+      }
+    }
+    // Row-bottom strip fallback — matches the flex-laid wood band under the books.
+    if (plank && row.dataset.shelfId) {
+      const rowR = row.getBoundingClientRect();
+      const plankH = Math.max(plank.getBoundingClientRect().height || 0, 12);
+      if (rowR.width > 0 && rowR.height > 0) {
+        hitRect(
+          plank,
+          rowR.left + 2,
+          rowR.bottom - plankH - 10,
+          rowR.right - 2,
+          rowR.bottom + 8,
+        );
+      }
+    }
+  }
+
+  return best;
+}
+
+function applyLiveCollision(unit) {
+  clampUnitBounds(unit);
+  separateFromOthers(unit);
+  clampUnitBounds(unit);
+}
+
+function refreshShelfBooks(unit, shelf) {
+  const root = unitEl(unit.id);
+  if (!root) return;
+  const row = root.querySelector(`.shelf-row[data-shelf-id="${CSS.escape(shelf.id)}"]`);
+  const wrap = row?.querySelector('.shelf-books');
+  if (!wrap) return;
+  const unitIndex = state.units.findIndex((u) => u.id === unit.id);
+  const shelfIndex = unit.shelves.findIndex((s) => s.id === shelf.id);
+  wrap.innerHTML = '';
+  const count = bookCountFor(shelf);
+  for (let i = 0; i < count; i++) {
+    const book = document.createElement('span');
+    book.className = 'scene-book';
+    book.style.background = bookColors[(i + unitIndex * 5 + shelfIndex * 3) % bookColors.length];
+    book.style.height = `${48 + ((i * 11 + shelfIndex * 7 + unitIndex * 5) % 42)}%`;
+    wrap.appendChild(book);
+  }
+}
+
+function startShelfHeightDrag(unit, shelfId, e) {
+  const index = unit.shelves.findIndex((s) => s.id === shelfId);
+  if (index < 0) return false;
+  // The plank under shelf i is the divider above shelf i+1.
+  // The bottom bay's plank is the case floor — not a movable divider.
+  if (index >= unit.shelves.length - 1) return false;
+  const pair = index + 1;
+  const weights = unit.shelves.map((s) => s.weight);
+  const bounds = pairWeightBounds(unit, index, pair, weights);
+  drag = {
+    type: 'shelf-drag',
+    unitId: unit.id,
+    shelfId,
+    index,
+    pair,
+    sign: 1,
+    startY: e.clientY,
+    weights,
+    minW: bounds.minW,
+    maxW: bounds.maxW,
+    pairSum: bounds.pairSum,
+    total: bounds.total,
+    lastA: weights[index],
+    armed: false,
+  };
+  selected = { type: 'shelf', unitId: unit.id, shelfId, boxId: null };
+  unitLayer.querySelectorAll('.shelf-row').forEach((row) => {
+    row.classList.toggle(
+      'is-selected',
+      row.dataset.unitId === unit.id && row.dataset.shelfId === shelfId,
+    );
+  });
+  unitLayer.querySelectorAll('.px-shelf').forEach((el) => {
+    el.classList.toggle('is-active-unit', el.dataset.unitId === unit.id);
+    el.classList.remove('is-unit-selected');
+  });
+  buildOverlayChrome();
+  syncInspector();
+  return true;
+}
+
+function applyShelfDrag(e) {
+  const unit = findUnit(drag.unitId);
+  if (!unit) return;
+  const dy = e.clientY - drag.startY;
+  if (!drag.armed) {
+    if (Math.abs(dy) < 4) return;
+    drag.armed = true;
+  }
+
+  const cavity = unitEl(unit.id)?.querySelector('.unit-pick') || unitEl(unit.id);
+  const cavityH = cavity?.getBoundingClientRect().height || 1;
+  const a0 = drag.weights[drag.index];
+  const delta = (dy / cavityH) * drag.total * 1.35 * drag.sign;
+  const a = Math.min(drag.maxW, Math.max(drag.minW, a0 + delta));
+
+  // Past the limit: do not rewrite weights (avoids float churn / neighbor jitter).
+  if (Math.abs(a - drag.lastA) < 1e-8) return;
+  drag.lastA = a;
+
+  unit.shelves.forEach((s, i) => {
+    s.weight = drag.weights[i];
+  });
+  unit.shelves[drag.index].weight = a;
+  unit.shelves[drag.pair].weight = drag.pairSum - a;
+  applyShelfHeights(unit);
+  syncInspector();
+}
+
+editOverlay.addEventListener('pointerdown', (e) => {
+  if (!editing) return;
+  const handle = e.target.closest('.unit-handle');
+  const move = e.target.closest('.unit-move-bar');
+  if (!handle && !move) return;
+  const unit = findUnit((handle || move).dataset.unitId || selected.unitId);
+  if (!unit) return;
+  e.preventDefault();
+  e.stopPropagation();
+  if (handle) startResizeDrag(unit, handle.dataset.edge, e);
+  else startMoveDrag(unit, e);
+  (handle || move).setPointerCapture?.(e.pointerId);
+});
+
+unitLayer.addEventListener('pointerdown', (e) => {
+  if (!editing) return;
+
+  const pick = e.target.closest('.unit-pick');
+  if (pick) {
+    // Disambiguate overlapping 3D AABBs before trusting the event target.
+    const unit = unitAtPoint(e.clientX, e.clientY) || findUnit(pick.dataset.unitId);
+    if (!unit) return;
+    e.preventDefault();
+    e.stopPropagation();
+
+    const pickEl = unitEl(unit.id)?.querySelector('.unit-pick') || pick;
+
+    if (isFrameEdgeClick(pickEl, e.clientX, e.clientY)) {
+      select(unit.id);
+      return;
+    }
+
+    const boxHit = boxAtPoint(unit.id, e.clientX, e.clientY);
+    if (boxHit?.shelfId && boxHit?.boxId) {
+      select(unit.id, boxHit.shelfId, boxHit.boxId);
+      return;
+    }
+
+    // Shelf select + height drag only when the cursor is on the wood plank.
+    const hit = woodPlankAtPoint(unit.id, e.clientX, e.clientY);
+    if (hit) {
+      if (startShelfHeightDrag(unit, hit.shelfId, e)) {
+        pickEl.setPointerCapture?.(e.pointerId);
+      } else {
+        // Floor plank / single-shelf — still select the shelf.
+        select(unit.id, hit.shelfId);
+      }
+      return;
+    }
+
+    select(unit.id);
+    return;
+  }
+
+  const caseEl = e.target.closest('.px-shelf');
+  if (caseEl) {
+    e.preventDefault();
+    const unit = unitAtPoint(e.clientX, e.clientY) || findUnit(caseEl.dataset.unitId);
+    if (unit) select(unit.id);
+  }
+});
+
+unitLayer.addEventListener('pointermove', (e) => {
+  if (!editing || drag) return;
+  const pick = e.target.closest('.unit-pick');
+  if (!pick) return;
+  const unit = unitAtPoint(e.clientX, e.clientY) || findUnit(pick.dataset.unitId);
+  if (!unit) return;
+  const hit = woodPlankAtPoint(unit.id, e.clientX, e.clientY);
+  const idx = hit ? unit.shelves.findIndex((s) => s.id === hit.shelfId) : -1;
+  const canDragHeight = idx >= 0 && idx < unit.shelves.length - 1;
+  pick.style.cursor = canDragHeight ? 'ns-resize' : 'var(--cursor-active)';
+});
+
+window.addEventListener('pointermove', (e) => {
+  if (!drag) return;
+
+  if (drag.type === 'shelf-drag') {
+    applyShelfDrag(e);
+    return;
+  }
+
+  if (drag.type === 'move') {
+    const unit = findUnit(drag.unitId);
+    if (!unit) return;
+    const dx = ((e.clientX - drag.startX) / drag.wallW) * 100;
+    const dy = ((e.clientY - drag.startY) / drag.wallH) * 100;
+    unit.x = drag.orig.x + dx;
+    unit.y = drag.orig.y + dy;
+    unit.w = drag.orig.w;
+    unit.h = drag.orig.h;
+    applyLiveCollision(unit);
+    applyUnitGeometry(unit);
+    return;
+  }
+
+  if (drag.type === 'resize') {
+    const unit = findUnit(drag.unitId);
+    if (!unit) return;
+    const dx = ((e.clientX - drag.startX) / drag.wallW) * 100;
+    const dy = ((e.clientY - drag.startY) / drag.wallH) * 100;
+    const o = drag.orig;
+    let { x, y, w, h } = o;
+    const edge = drag.edge;
+
+    if (edge.includes('e')) w = o.w + dx;
+    if (edge.includes('w')) {
+      w = o.w - dx;
+      x = o.x + dx;
+    }
+    if (edge.includes('s')) h = o.h + dy;
+    if (edge.includes('n')) {
+      h = o.h - dy;
+      y = o.y + dy;
+    }
+
+    unit.x = x;
+    unit.y = y;
+    unit.w = w;
+    unit.h = h;
+    // Edge-anchored clamp — never translate the case when past size/screen limits.
+    clampResizeDrag(unit, edge, o);
+    applyUnitGeometry(unit);
+  }
+});
+
+window.addEventListener('pointerup', endPointerDrag);
+window.addEventListener('pointercancel', endPointerDrag);
+
+function endPointerDrag() {
+  if (!drag) return;
+  const ended = drag;
+  drag = null;
+  const unit = findUnit(ended.unitId);
+
+  if (ended.type === 'shelf-drag') {
+    if (ended.armed && unit) {
+      applyShelfHeights(unit);
+      syncInspector();
+    }
+    saveState();
+    return;
+  }
+
+  if (unit && (ended.type === 'move' || ended.type === 'resize')) {
+    finalizeUnitLayout(unit, {
+      snap: true,
+      edge: ended.type === 'resize' ? ended.edge : null,
+    });
+    applyUnitGeometry(unit);
+  }
+  saveState();
+  buildScene();
+}
+
+window.addEventListener('keydown', (e) => {
+  if (!editing) return;
+  if (e.target.matches('input, textarea')) return;
+  if (e.key === 'Delete' || e.key === 'Backspace') {
+    e.preventDefault();
+    deleteSelected();
+  }
+  if (e.key === 'Escape') {
+    if (selected.type !== 'unit' && selected.unitId) {
+      select(selected.unitId);
+    }
+  }
+});
+
+btnEdit.addEventListener('click', () => setEditing(!editing));
+document.getElementById('btn-edit-done')?.addEventListener('click', () => setEditing(false));
+
+editPanel.addEventListener('click', (e) => {
+  const btn = e.target.closest('[data-act]');
+  if (!btn) return;
+  e.preventDefault();
+  e.stopPropagation();
+  const act = btn.dataset.act;
+  if (act === 'add-shelf') addShelf();
+  else if (act === 'add-box') addBox();
+  else if (act === 'delete') deleteSelected();
+  else if (act === 'add-left') addAdjacent('left');
+  else if (act === 'add-right') addAdjacent('right');
+  else if (act === 'add-above') addAdjacent('above');
+  else if (act === 'add-below') addAdjacent('below');
+  else if (act === 'export') exportState();
+  else if (act === 'import') fileIn.click();
+  else if (act === 'reset') {
+    state = defaultState();
+    selected = { type: 'unit', unitId: state.units[0].id, shelfId: null, boxId: null };
+    saveState();
+    buildScene();
+  }
+});
+
+fileIn.addEventListener('change', () => {
+  const file = fileIn.files?.[0];
+  if (file) importState(file);
+  fileIn.value = '';
+});
+
+weightInput.addEventListener('input', () => {
+  const shelf = selectedShelf();
+  const unit = selectedUnit();
+  if (!shelf || !unit || (selected.type !== 'shelf' && selected.type !== 'box')) return;
+  if (unit.shelves.length < 2) return;
+  const index = unit.shelves.findIndex((s) => s.id === shelf.id);
+  if (index < 0) return;
+  const total = totalWeight(unit.shelves);
+  const pct = Number(weightInput.value);
+  resizeShelfPair(unit, index, (pct / 100) * total);
+  const sharePct = (shelf.weight / totalWeight(unit.shelves)) * 100;
+  weightInput.value = String(Math.round(sharePct * 10) / 10);
+  weightOut.textContent = `${Math.round(sharePct)}%`;
+  applyShelfHeights(unit);
+});
+weightInput.addEventListener('change', () => {
+  saveState();
   buildScene();
 });
 
-/* Edit interaction listeners omitted — VIEW_ONLY bookshelf viewer. */
-bindSearchUi();
-boot();
+booksInput.addEventListener('input', () => {
+  const shelf = selectedShelf();
+  if (!shelf || (selected.type !== 'shelf' && selected.type !== 'box')) return;
+  const n = Number(booksInput.value);
+  shelf.books = Math.min(56, Math.max(8, Number.isFinite(n) ? n : 40));
+  booksInput.value = String(shelf.books);
+  booksOut.textContent = String(shelf.books);
+  const unit = selectedUnit();
+  if (unit) refreshShelfBooks(unit, shelf);
+});
+booksInput.addEventListener('change', () => {
+  saveState();
+  buildScene();
+});
+
+countInput.addEventListener('input', () => {
+  const unit = selectedUnit();
+  if (!unit) return;
+  countOut.textContent = String(countInput.value);
+  setShelfCount(unit, Number(countInput.value));
+});
+countInput.addEventListener('change', () => {
+  const unit = selectedUnit();
+  if (!unit) return;
+  setShelfCount(unit, Number(countInput.value));
+});
+
+depthInput.addEventListener('input', () => {
+  state.depth = clampDepth(depthInput.value);
+  depthInput.value = String(state.depth);
+  depthOut.textContent = String(state.depth);
+  unitLayer.querySelectorAll('.px-shelf').forEach((el) => {
+    el.style.setProperty('--shelf-d', `${state.depth}px`);
+  });
+  scheduleOverlaySync();
+});
+depthInput.addEventListener('change', saveState);
+
+edgesInput.addEventListener('input', () => {
+  state.edges = clampEdges(edgesInput.value);
+  edgesInput.value = String(state.edges);
+  edgesOut.textContent = String(state.edges);
+  unitLayer.querySelectorAll('.px-shelf').forEach((el) => {
+    el.style.setProperty('--frame-edge', `${state.edges}px`);
+  });
+  scheduleOverlaySync();
+});
+edgesInput.addEventListener('change', saveState);
+
+buildScene();
+if (reduceMotion) apply();

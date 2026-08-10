@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <title>Bookshelf studio · The Raconteur’s Commonplace</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Manrope:wght@400;500;600;700;800&family=Space+Mono:wght@400;700&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <main class="world-home" id="world">
+      <div class="scene-viewport" id="stage">
+        <div class="scene-camera" id="scene-camera">
+          <div class="room-3d" id="room">
+            <div class="px-plane px-ceiling"></div>
+            <div class="px-plane px-back" id="wall">
+              <div class="px-arch"></div>
+              <div class="unit-layer" id="unit-layer"></div>
+            </div>
+            <div class="px-plane px-floor"></div>
+          </div>
+        </div>
+        <div class="edit-overlay" id="edit-overlay" hidden></div>
+        <div class="scene-ambient"></div>
+        <div class="scene-motes">
+          <i class="mote"></i><i class="mote"></i><i class="mote"></i><i class="mote"></i>
+        </div>
+      </div>
+
+      <div class="wordmark">
+        <div class="monogram">RC</div>
+        <div>
+          <div class="wordmark-title">The Raconteur’s<br />Commonplace</div>
+          <div class="wordmark-sub">a private archive of remembered places</div>
+        </div>
+      </div>
+
+      <div class="quiet-tools">
+        <button type="button" class="quiet-button" title="Edit bookshelf" aria-label="Edit" id="btn-edit" aria-pressed="false">
+          <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M12 20h9" />
+            <path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z" />
+          </svg>
+        </button>
+      </div>
+
+      <aside class="edit-panel" id="edit-panel" hidden>
+        <div class="edit-panel-head">
+          <div>
+            <p class="edit-kicker">Bookshelf studio</p>
+            <h2 class="edit-title">Edit mode</h2>
+          </div>
+          <button type="button" class="edit-done" id="btn-edit-done">Done</button>
+        </div>
+
+        <div class="edit-tools" id="edit-tools">
+          <button type="button" class="edit-tool" data-act="add-shelf">+ Shelf</button>
+          <button type="button" class="edit-tool" data-act="add-box">+ Box</button>
+          <button type="button" class="edit-tool danger" data-act="delete">Delete</button>
+        </div>
+
+        <div class="edit-tools">
+          <button type="button" class="edit-tool ghost" data-act="add-left">← Unit</button>
+          <button type="button" class="edit-tool ghost" data-act="add-right">Unit →</button>
+          <button type="button" class="edit-tool ghost" data-act="add-above">↑ Unit</button>
+          <button type="button" class="edit-tool ghost" data-act="add-below">↓ Unit</button>
+        </div>
+
+        <p class="edit-hint" id="edit-hint">Select a case, shelf, or box. Drag to move; corners resize.</p>
+
+        <div class="edit-fields">
+          <label class="edit-field">
+            <span>Case depth</span>
+            <input type="range" id="case-depth" min="48" max="120" step="2" value="80" />
+            <output id="case-depth-out">80</output>
+          </label>
+          <label class="edit-field">
+            <span>Case edges</span>
+            <input type="range" id="case-edges" min="4" max="24" step="1" value="16" />
+            <output id="case-edges-out">16</output>
+          </label>
+          <label class="edit-field">
+            <span>Number of shelves</span>
+            <input type="range" id="shelf-count" min="1" max="8" step="1" value="4" disabled />
+            <output id="shelf-count-out">—</output>
+          </label>
+          <label class="edit-field">
+            <span>Shelf height</span>
+            <input type="range" id="shelf-weight" min="1" max="90" step="0.5" value="25" disabled />
+            <output id="shelf-weight-out">—</output>
+          </label>
+          <label class="edit-field">
+            <span>Books on shelf</span>
+            <input type="range" id="shelf-books" min="8" max="56" step="1" value="40" disabled />
+            <output id="shelf-books-out">—</output>
+          </label>
+        </div>
+
+        <div class="edit-actions">
+          <button type="button" class="edit-tool ghost" data-act="export">Export</button>
+          <button type="button" class="edit-tool ghost" data-act="import">Import</button>
+          <button type="button" class="edit-tool ghost" data-act="reset">Reset</button>
+          <input type="file" id="file-in" accept="application/json,.json" hidden />
+        </div>
+      </aside>
+
+      <div class="search-dock">
+        <svg class="search-icon" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2">
+          <circle cx="11" cy="11" r="7" /><path d="M21 21l-4.3-4.3" />
+        </svg>
+        <input type="search" id="search" placeholder="Search the commonplace…" autocomplete="off" />
+        <button type="button" class="explore-button" id="btn-explore">
+          Explore
+          <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5">
+            <path d="M9 18l6-6-6-6" />
+          </svg>
+        </button>
+      </div>
+    </main>
+
+    <script type="module" src="./app.js"></script>
+  </body>
+</html>

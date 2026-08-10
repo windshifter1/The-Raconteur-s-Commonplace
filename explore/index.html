@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <title>Explore · The Raconteur’s Commonplace</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Manrope:wght@400;500;600;700;800&family=Space+Mono:wght@400;700&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <div class="explore-page">
+      <header class="explore-top">
+        <div class="wordmark">
+          <img class="brand-mark" src="./assets/rc-logo.png" width="56" height="56" alt="The Raconteur’s Commonplace" />
+          <div>
+            <div class="wordmark-title">The Raconteur’s<br />Commonplace</div>
+            <div class="wordmark-sub">full catalogue · mock placement</div>
+          </div>
+        </div>
+        <a class="walk-button" href="../full/">
+          Walk the Shelves
+          <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true">
+            <path d="M15 18l-6-6 6-6" />
+          </svg>
+        </a>
+      </header>
+
+      <main class="explore-main">
+        <section class="hero-copy">
+          <p class="kicker">Explore</p>
+          <h1>The working commonplace</h1>
+          <p class="lede">
+            A mock layout for the full app — catalogue tools beyond the room twin. Placement only; wiring comes later.
+          </p>
+        </section>
+
+        <section class="feature-grid" aria-label="Feature placement">
+          <article class="feature-tile feature-tile--wide">
+            <p class="tile-kicker">Find again</p>
+            <h2>Search books</h2>
+            <p>Title, author, keyword — same catalogue the Walk the Shelves bar uses.</p>
+            <div class="mock-search">
+              <span class="mock-icon" aria-hidden="true"></span>
+              <input type="search" placeholder="Search the commonplace…" disabled />
+              <button type="button" disabled>Search</button>
+            </div>
+          </article>
+
+          <article class="feature-tile">
+            <p class="tile-kicker">Catalogue</p>
+            <h2>Add books</h2>
+            <p>Intake form for new titles, covers, and shelf assignment.</p>
+            <button type="button" class="ghost-cta" disabled>Open intake</button>
+          </article>
+
+          <article class="feature-tile">
+            <p class="tile-kicker">Catalogue</p>
+            <h2>Edit books</h2>
+            <p>Correct metadata, genres, availability, and notes in place.</p>
+            <button type="button" class="ghost-cta" disabled>Browse to edit</button>
+          </article>
+
+          <article class="feature-tile feature-tile--accent">
+            <p class="tile-kicker">Room</p>
+            <h2>Shelf by shelf</h2>
+            <p>Walk each bay as a list — weights, boxes, and titles per plank.</p>
+            <div class="shelf-strip" aria-hidden="true">
+              <i></i><i></i><i></i><i></i><i></i>
+            </div>
+            <button type="button" class="ghost-cta" disabled>Open shelf view</button>
+          </article>
+
+          <article class="feature-tile">
+            <p class="tile-kicker">Library</p>
+            <h2>Cases &amp; units</h2>
+            <p>Manage which cases are on the wall and how they nest.</p>
+            <button type="button" class="ghost-cta" disabled>Manage cases</button>
+          </article>
+
+          <article class="feature-tile">
+            <p class="tile-kicker">Return</p>
+            <h2>Walk the Shelves</h2>
+            <p>Back to the pixel room — the living twin of the archive.</p>
+            <a class="solid-cta" href="../full/">Enter the room</a>
+          </article>
+        </section>
+      </main>
+    </div>
+  </body>
+</html>

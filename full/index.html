@@ -25,7 +25,6 @@
             <div class="px-plane px-floor"></div>
           </div>
         </div>
-        <div class="edit-overlay" id="edit-overlay" hidden></div>
         <div class="scene-ambient"></div>
         <div class="scene-motes">
           <i class="mote"></i><i class="mote"></i><i class="mote"></i><i class="mote"></i>
@@ -33,94 +32,41 @@
       </div>
 
       <div class="wordmark">
-        <div class="monogram">RC</div>
+        <img class="brand-mark" src="./assets/rc-logo.png" width="56" height="56" alt="The Raconteur’s Commonplace" />
         <div>
           <div class="wordmark-title">The Raconteur’s<br />Commonplace</div>
           <div class="wordmark-sub">a private archive of remembered places</div>
         </div>
       </div>
 
-      <div class="quiet-tools">
-        <button type="button" class="quiet-button" title="Edit bookshelf" aria-label="Edit" id="btn-edit" aria-pressed="false">
-          <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2">
-            <path d="M12 20h9" />
-            <path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z" />
-          </svg>
-        </button>
-      </div>
-
-      <aside class="edit-panel" id="edit-panel" hidden>
-        <div class="edit-panel-head">
-          <div>
-            <p class="edit-kicker">Bookshelf studio</p>
-            <h2 class="edit-title">Edit mode</h2>
+      <section class="search-shell" aria-label="Catalogue search">
+        <div class="search-results" id="search-results" hidden>
+          <div class="search-results-head">
+            <p class="search-results-kicker">Catalogue</p>
+            <button type="button" class="search-results-close" id="search-close" aria-label="Close search results">
+              Close
+            </button>
           </div>
-          <button type="button" class="edit-done" id="btn-edit-done">Done</button>
+          <p class="search-results-status" id="search-status">Type a title, author, or keyword.</p>
+          <ul class="search-results-list" id="search-list"></ul>
         </div>
 
-        <div class="edit-tools" id="edit-tools">
-          <button type="button" class="edit-tool" data-act="add-shelf">+ Shelf</button>
-          <button type="button" class="edit-tool" data-act="add-box">+ Box</button>
-          <button type="button" class="edit-tool danger" data-act="delete">Delete</button>
+        <div class="search-bar">
+          <div class="search-dock">
+            <svg class="search-icon" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+              <circle cx="11" cy="11" r="7" /><path d="M21 21l-4.3-4.3" />
+            </svg>
+            <input type="search" id="search" placeholder="Search the commonplace…" autocomplete="off" />
+            <button type="button" class="dock-button" id="btn-search">Search</button>
+          </div>
+          <a class="explore-button" id="btn-explore" href="../explore/">
+            Explore
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true">
+              <path d="M9 18l6-6-6-6" />
+            </svg>
+          </a>
         </div>
-
-        <div class="edit-tools">
-          <button type="button" class="edit-tool ghost" data-act="add-left">← Unit</button>
-          <button type="button" class="edit-tool ghost" data-act="add-right">Unit →</button>
-          <button type="button" class="edit-tool ghost" data-act="add-above">↑ Unit</button>
-          <button type="button" class="edit-tool ghost" data-act="add-below">↓ Unit</button>
-        </div>
-
-        <p class="edit-hint" id="edit-hint">Select a case, shelf, or box. Drag to move; corners resize.</p>
-
-        <div class="edit-fields">
-          <label class="edit-field">
-            <span>Camera zoom</span>
-            <input type="range" id="cam-zoom" min="0.75" max="1.45" step="0.01" value="1" />
-            <output id="cam-zoom-out">1.00</output>
-          </label>
-          <label class="edit-field">
-            <span>Case depth</span>
-            <input type="range" id="case-depth" min="48" max="120" step="2" value="80" />
-            <output id="case-depth-out">80</output>
-          </label>
-          <label class="edit-field">
-            <span>Number of shelves</span>
-            <input type="range" id="shelf-count" min="1" max="8" step="1" value="4" disabled />
-            <output id="shelf-count-out">—</output>
-          </label>
-          <label class="edit-field">
-            <span>Shelf height</span>
-            <input type="range" id="shelf-weight" min="0.4" max="2.5" step="0.05" value="1" disabled />
-            <output id="shelf-weight-out">—</output>
-          </label>
-          <label class="edit-field">
-            <span>Books on shelf</span>
-            <input type="range" id="shelf-books" min="12" max="56" step="1" value="40" disabled />
-            <output id="shelf-books-out">—</output>
-          </label>
-        </div>
-
-        <div class="edit-actions">
-          <button type="button" class="edit-tool ghost" data-act="export">Export</button>
-          <button type="button" class="edit-tool ghost" data-act="import">Import</button>
-          <button type="button" class="edit-tool ghost" data-act="reset">Reset</button>
-          <input type="file" id="file-in" accept="application/json,.json" hidden />
-        </div>
-      </aside>
-
-      <div class="search-dock">
-        <svg class="search-icon" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2">
-          <circle cx="11" cy="11" r="7" /><path d="M21 21l-4.3-4.3" />
-        </svg>
-        <input type="search" id="search" placeholder="Search the commonplace…" autocomplete="off" />
-        <button type="button" class="explore-button" id="btn-explore">
-          Explore
-          <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5">
-            <path d="M9 18l6-6-6-6" />
-          </svg>
-        </button>
-      </div>
+      </section>
     </main>
 
     <script type="module" src="./app.js"></script>
