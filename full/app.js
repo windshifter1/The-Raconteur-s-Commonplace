@@ -7,9 +7,20 @@ const LEGACY_KEY = 'trc-mockup6-library-v1';
 const bookColors = ['#bd6256', '#597e9d', '#ce9551', '#67886d', '#a3647a', '#a68a62', '#4c7779'];
 const boxColors = ['#8a5339', '#6b4030', '#a26443', '#5a3429'];
 
+const MIN_W = 16;
+const MIN_H = 20;
+const MAX_W = 88;
+const MAX_H = 82;
+const SNAP = 1.35;
+const GAP = 0.35;
+const MAX_UNITS = 9;
+const MAX_SHELVES = 8;
+const MIN_SHELVES = 1;
+
 const world = document.getElementById('world');
 const stage = document.getElementById('stage');
 const unitLayer = document.getElementById('unit-layer');
+const editOverlay = document.getElementById('edit-overlay');
 const editPanel = document.getElementById('edit-panel');
 const btnEdit = document.getElementById('btn-edit');
 const weightInput = document.getElementById('shelf-weight');
@@ -28,10 +39,10 @@ const uid = (prefix) => `${prefix}-${Date.now().toString(36)}-${(uidSeq += 1)}`;
 
 function defaultShelves() {
   return [
-    { id: 'shelf-1', weight: 1, books: 46, boxes: [] },
-    { id: 'shelf-2', weight: 1, books: 48, boxes: [] },
-    { id: 'shelf-3', weight: 1, books: 46, boxes: [] },
-    { id: 'shelf-4', weight: 1, books: 44, boxes: [] },
+    { id: uid('shelf'), weight: 1, books: 46, boxes: [] },
+    { id: uid('shelf'), weight: 1, books: 48, boxes: [] },
+    { id: uid('shelf'), weight: 1, books: 46, boxes: [] },
+    { id: uid('shelf'), weight: 1, books: 44, boxes: [] },
   ];
 }
 
@@ -42,20 +53,29 @@ function makeUnit(x, y, w, h, shelves = null) {
     y,
     w,
     h,
-    shelves: shelves || defaultShelves().map((s) => ({ ...s, id: uid('shelf'), boxes: [] })),
+    shelves: shelves
+      ? shelves.map(normalizeShelf)
+      : defaultShelves(),
   };
 }
 
 function defaultState() {
+  const w = 34;
+  const h = 52;
   return {
     version: 2,
     zoom: 1,
     depth: 80,
-    units: [makeUnit(26, 16, 48, 60, defaultShelves())],
+    units: [makeUnit((100 - w) / 2, 20, w, h, [
+      { id: 'shelf-1', weight: 1, books: 46, boxes: [] },
+      { id: 'shelf-2', weight: 1, books: 48, boxes: [] },
+      { id: 'shelf-3', weight: 1, books: 46, boxes: [] },
+      { id: 'shelf-4', weight: 1, books: 44, boxes: [] },
+    ])],
   };
 }
 
-function normalizeShelf(s, i) {
+function normalizeShelf(s, i = 0) {
   return {
     id: s.id || `shelf-${i + 1}`,
     weight: Math.max(0.35, Number(s.weight) || 1),
@@ -71,14 +91,16 @@ function normalizeShelf(s, i) {
 }
 
 function normalizeUnit(u, i) {
-  return {
+  const unit = {
     id: u.id || `unit-${i + 1}`,
-    x: Math.min(92, Math.max(0, Number(u.x) ?? 26)),
-    y: Math.min(88, Math.max(0, Number(u.y) ?? 16)),
-    w: Math.min(90, Math.max(18, Number(u.w) ?? 48)),
-    h: Math.min(85, Math.max(22, Number(u.h) ?? 60)),
+    x: Number(u.x) ?? 26,
+    y: Number(u.y) ?? 16,
+    w: Number(u.w) ?? 42,
+    h: Number(u.h) ?? 56,
     shelves: (u.shelves?.length ? u.shelves : defaultShelves()).map(normalizeShelf),
   };
+  clampUnitBounds(unit);
+  return unit;
 }
 
 function migrate(parsed) {
@@ -95,7 +117,7 @@ function migrate(parsed) {
       version: 2,
       zoom: 1,
       depth: parsed.depth ?? 80,
-      units: [normalizeUnit({ id: 'unit-1', x: 26, y: 16, w: 48, h: 60, shelves: parsed.shelves }, 0)],
+      units: [normalizeUnit({ id: 'unit-1', x: 29, y: 18, w: 42, h: 56, shelves: parsed.shelves }, 0)],
     };
   }
   return defaultState();
@@ -105,7 +127,9 @@ function loadState() {
   try {
     const raw = localStorage.getItem(STORAGE_KEY) || localStorage.getItem(LEGACY_KEY);
     if (!raw) return defaultState();
-    return migrate(JSON.parse(raw));
+    const state = migrate(JSON.parse(raw));
+    resolveAllOverlaps(state.units);
+    return state;
   } catch {
     return defaultState();
   }
@@ -115,6 +139,7 @@ let state = loadState();
 let editing = false;
 let selected = { type: null, unitId: null, shelfId: null, boxId: null };
 let drag = null;
+let overlayRaf = 0;
 
 function saveState() {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
@@ -158,6 +183,258 @@ function bookCountFor(shelf) {
   return Math.max(8, Math.round(shelf.books * available));
 }
 
+/* ── Geometry / snap / collision ── */
+
+function clampUnitBounds(u) {
+  u.w = Math.min(MAX_W, Math.max(MIN_W, u.w));
+  u.h = Math.min(MAX_H, Math.max(MIN_H, u.h));
+  u.x = Math.min(100 - u.w, Math.max(0, u.x));
+  u.y = Math.min(100 - u.h, Math.max(0, u.y));
+}
+
+function rectsOverlap(a, b, pad = 0) {
+  return !(
+    a.x + a.w + pad <= b.x ||
+    b.x + b.w + pad <= a.x ||
+    a.y + a.h + pad <= b.y ||
+    b.y + b.h + pad <= a.y
+  );
+}
+
+function overlapAmount(a, b) {
+  const ox = Math.min(a.x + a.w, b.x + b.w) - Math.max(a.x, b.x);
+  const oy = Math.min(a.y + a.h, b.y + b.h) - Math.max(a.y, b.y);
+  if (ox <= 0 || oy <= 0) return { ox: 0, oy: 0 };
+  return { ox, oy };
+}
+
+function otherUnits(id) {
+  return state.units.filter((u) => u.id !== id);
+}
+
+function snapValue(value, targets, threshold = SNAP) {
+  let best = value;
+  let bestDist = threshold;
+  for (const t of targets) {
+    const d = Math.abs(value - t);
+    if (d < bestDist) {
+      bestDist = d;
+      best = t;
+    }
+  }
+  return best;
+}
+
+function snapTargetsForAxis(unit, axis) {
+  const targets = [0];
+  if (axis === 'x') {
+    targets.push(50 - unit.w / 2); // room center
+    targets.push(100 - unit.w);
+    for (const o of otherUnits(unit.id)) {
+      targets.push(o.x, o.x + o.w + GAP, o.x - unit.w - GAP);
+      targets.push(o.x + o.w / 2 - unit.w / 2); // center align
+    }
+  } else {
+    targets.push(50 - unit.h / 2);
+    targets.push(100 - unit.h);
+    for (const o of otherUnits(unit.id)) {
+      targets.push(o.y, o.y + o.h + GAP, o.y - unit.h - GAP);
+      targets.push(o.y + o.h / 2 - unit.h / 2);
+    }
+  }
+  return targets;
+}
+
+function snapUnitPosition(unit) {
+  unit.x = snapValue(unit.x, snapTargetsForAxis(unit, 'x'));
+  unit.y = snapValue(unit.y, snapTargetsForAxis(unit, 'y'));
+  // Also snap right/bottom edges via position
+  const rightTargets = otherUnits(unit.id).flatMap((o) => [o.x - GAP, o.x + o.w, 100]);
+  const bottomTargets = otherUnits(unit.id).flatMap((o) => [o.y - GAP, o.y + o.h, 100]);
+  const snappedRight = snapValue(unit.x + unit.w, rightTargets);
+  const snappedBottom = snapValue(unit.y + unit.h, bottomTargets);
+  if (Math.abs(snappedRight - (unit.x + unit.w)) < SNAP) unit.x = snappedRight - unit.w;
+  if (Math.abs(snappedBottom - (unit.y + unit.h)) < SNAP) unit.y = snappedBottom - unit.h;
+  clampUnitBounds(unit);
+}
+
+function snapUnitResize(unit, edge) {
+  const others = otherUnits(unit.id);
+  if (edge.includes('e')) {
+    const targets = [100, ...others.flatMap((o) => [o.x - GAP, o.x + o.w])];
+    const right = snapValue(unit.x + unit.w, targets);
+    unit.w = Math.max(MIN_W, right - unit.x);
+  }
+  if (edge.includes('w')) {
+    const targets = [0, ...others.flatMap((o) => [o.x, o.x + o.w + GAP])];
+    const left = snapValue(unit.x, targets);
+    const right = unit.x + unit.w;
+    unit.x = left;
+    unit.w = Math.max(MIN_W, right - left);
+  }
+  if (edge.includes('s')) {
+    const targets = [100, ...others.flatMap((o) => [o.y - GAP, o.y + o.h])];
+    const bottom = snapValue(unit.y + unit.h, targets);
+    unit.h = Math.max(MIN_H, bottom - unit.y);
+  }
+  if (edge.includes('n')) {
+    const targets = [0, ...others.flatMap((o) => [o.y, o.y + o.h + GAP])];
+    const top = snapValue(unit.y, targets);
+    const bottom = unit.y + unit.h;
+    unit.y = top;
+    unit.h = Math.max(MIN_H, bottom - top);
+  }
+  clampUnitBounds(unit);
+}
+
+function separateFromOthers(unit) {
+  for (let pass = 0; pass < 8; pass++) {
+    let moved = false;
+    for (const other of otherUnits(unit.id)) {
+      if (!rectsOverlap(unit, other, GAP * 0.5)) continue;
+      const { ox, oy } = overlapAmount(
+        { x: unit.x - GAP / 2, y: unit.y - GAP / 2, w: unit.w + GAP, h: unit.h + GAP },
+        { x: other.x - GAP / 2, y: other.y - GAP / 2, w: other.w + GAP, h: other.h + GAP },
+      );
+      if (ox <= 0 || oy <= 0) continue;
+      if (ox < oy) {
+        const unitCx = unit.x + unit.w / 2;
+        const otherCx = other.x + other.w / 2;
+        if (unitCx >= otherCx) unit.x += ox + 0.01;
+        else unit.x -= ox + 0.01;
+      } else {
+        const unitCy = unit.y + unit.h / 2;
+        const otherCy = other.y + other.h / 2;
+        if (unitCy >= otherCy) unit.y += oy + 0.01;
+        else unit.y -= oy + 0.01;
+      }
+      clampUnitBounds(unit);
+      moved = true;
+    }
+    if (!moved) break;
+  }
+}
+
+function resolveAllOverlaps(units) {
+  for (let pass = 0; pass < 12; pass++) {
+    let any = false;
+    for (let i = 0; i < units.length; i++) {
+      for (let j = i + 1; j < units.length; j++) {
+        const a = units[i];
+        const b = units[j];
+        if (!rectsOverlap(a, b, GAP * 0.5)) continue;
+        any = true;
+        const { ox, oy } = overlapAmount(a, b);
+        if (ox > 0 && oy > 0) {
+          if (ox < oy) {
+            a.x -= ox / 2 + GAP / 2;
+            b.x += ox / 2 + GAP / 2;
+          } else {
+            a.y -= oy / 2 + GAP / 2;
+            b.y += oy / 2 + GAP / 2;
+          }
+          clampUnitBounds(a);
+          clampUnitBounds(b);
+        }
+      }
+    }
+    if (!any) break;
+  }
+}
+
+function overlapsAny(slot, pad = GAP * 0.25, ignoreId = null) {
+  return state.units.some((u) => u.id !== ignoreId && rectsOverlap(slot, u, pad));
+}
+
+function findFreeSlot(anchor, dir) {
+  const maxW = Math.min(anchor.w, MAX_W);
+  const maxH = Math.min(anchor.h, MAX_H);
+  const sizes = [
+    { w: maxW, h: maxH },
+    { w: Math.max(MIN_W, maxW * 0.75), h: maxH },
+    { w: Math.max(MIN_W, maxW * 0.55), h: maxH },
+    { w: maxW, h: Math.max(MIN_H, maxH * 0.75) },
+    { w: Math.max(MIN_W, maxW * 0.55), h: Math.max(MIN_H, maxH * 0.65) },
+  ];
+
+  const build = (w, h, off = 0) => {
+    if (dir === 'left') return { x: anchor.x - w - GAP, y: anchor.y + off, w, h };
+    if (dir === 'right') return { x: anchor.x + anchor.w + GAP, y: anchor.y + off, w, h };
+    if (dir === 'above') return { x: anchor.x + off, y: anchor.y - h - GAP, w, h };
+    return { x: anchor.x + off, y: anchor.y + anchor.h + GAP, w, h };
+  };
+
+  const fitToBand = (slot) => {
+    if (dir === 'right') {
+      const left = anchor.x + anchor.w + GAP;
+      if (slot.x < left) {
+        slot.x = left;
+        slot.w = Math.min(slot.w, 100 - slot.x);
+      }
+    } else if (dir === 'left') {
+      const rightEdge = anchor.x - GAP;
+      if (slot.x + slot.w > rightEdge) {
+        slot.w = Math.min(slot.w, rightEdge);
+        slot.x = Math.max(0, rightEdge - slot.w);
+      }
+    } else if (dir === 'below') {
+      const top = anchor.y + anchor.h + GAP;
+      if (slot.y < top) {
+        slot.y = top;
+        slot.h = Math.min(slot.h, 100 - slot.y);
+      }
+    } else if (dir === 'above') {
+      const bottomEdge = anchor.y - GAP;
+      if (slot.y + slot.h > bottomEdge) {
+        slot.h = Math.min(slot.h, bottomEdge);
+        slot.y = Math.max(0, bottomEdge - slot.h);
+      }
+    }
+    clampUnitBounds(slot);
+  };
+
+  const offsets = [0, 6, -6, 12, -12, 18, -18, 28, -28];
+  const trySlot = (slot) => {
+    fitToBand(slot);
+    if (slot.w < MIN_W - 0.01 || slot.h < MIN_H - 0.01) return null;
+    if (!overlapsAny(slot)) return slot;
+    return null;
+  };
+
+  for (const size of sizes) {
+    for (const off of offsets) {
+      const found = trySlot(build(size.w, size.h, off));
+      if (found) return found;
+    }
+  }
+
+  // Fallback: hug the room edge in that direction (useful when the near side is blocked).
+  for (const size of sizes) {
+    for (const off of offsets) {
+      let slot;
+      if (dir === 'left') slot = { x: 0, y: anchor.y + off, w: size.w, h: size.h };
+      else if (dir === 'right') slot = { x: 100 - size.w, y: anchor.y + off, w: size.w, h: size.h };
+      else if (dir === 'above') slot = { x: anchor.x + off, y: 0, w: size.w, h: size.h };
+      else slot = { x: anchor.x + off, y: 100 - size.h, w: size.w, h: size.h };
+      clampUnitBounds(slot);
+      if (!overlapsAny(slot)) return slot;
+    }
+  }
+  return null;
+}
+
+function finalizeUnitLayout(unit, { snap = true, edge = null } = {}) {
+  clampUnitBounds(unit);
+  if (snap) {
+    if (edge) snapUnitResize(unit, edge);
+    else snapUnitPosition(unit);
+  }
+  separateFromOthers(unit);
+  clampUnitBounds(unit);
+}
+
+/* ── Render ── */
+
 function applyZoom() {
   const z = state.zoom;
   const bleed = 1 + Math.max(0, z - 1) * 2.8 + Math.max(0, 1 - z) * 0.4;
@@ -165,6 +442,7 @@ function applyZoom() {
   world.style.setProperty('--cam-bleed', String(bleed));
   zoomInput.value = String(z);
   zoomOut.textContent = z.toFixed(2);
+  scheduleOverlaySync();
 }
 
 function buildUnitDom(unit, unitIndex) {
@@ -176,9 +454,8 @@ function buildUnitDom(unit, unitIndex) {
   root.style.width = `${unit.w}%`;
   root.style.height = `${unit.h}%`;
   root.style.setProperty('--shelf-d', `${state.depth}px`);
-  const unitActive = selected.unitId === unit.id;
-  if (unitActive && selected.type === 'unit') root.classList.add('is-unit-selected');
-  if (unitActive) root.classList.add('is-active-unit');
+  if (selected.unitId === unit.id) root.classList.add('is-active-unit');
+  if (selected.unitId === unit.id && selected.type === 'unit') root.classList.add('is-unit-selected');
 
   root.innerHTML = `
     <div class="shelf-frame" data-select-unit="${unit.id}">
@@ -193,21 +470,14 @@ function buildUnitDom(unit, unitIndex) {
   `;
 
   const cavity = root.querySelector('[data-cavity]');
-  const metrics = layoutMetrics(unit.shelves);
-  metrics.forEach(({ shelf, top, height }, index) => {
+  layoutMetrics(unit.shelves).forEach(({ shelf, top, height }, index) => {
     const row = document.createElement('div');
     row.className = 'shelf-row';
     row.dataset.shelfId = shelf.id;
     row.dataset.unitId = unit.id;
     row.style.top = `${top}%`;
     row.style.height = `${height}%`;
-    if (
-      selected.unitId === unit.id &&
-      selected.shelfId === shelf.id &&
-      selected.type === 'shelf'
-    ) {
-      row.classList.add('is-selected');
-    }
+    if (selected.type === 'shelf' && selected.shelfId === shelf.id) row.classList.add('is-selected');
 
     const content = document.createElement('div');
     content.className = 'shelf-content';
@@ -222,7 +492,7 @@ function buildUnitDom(unit, unitIndex) {
       el.style.flex = `0 0 ${box.width * 100}%`;
       el.style.background = box.color;
       el.setAttribute('aria-label', 'Storage box');
-      if (selected.boxId === box.id && selected.type === 'box') el.classList.add('is-selected');
+      if (selected.type === 'box' && selected.boxId === box.id) el.classList.add('is-selected');
       content.appendChild(el);
     });
 
@@ -255,29 +525,11 @@ function buildUnitDom(unit, unitIndex) {
     cavity.appendChild(row);
   });
 
-  if (editing && unitActive) {
-    const chrome = document.createElement('div');
-    chrome.className = 'unit-chrome';
-    chrome.dataset.unitId = unit.id;
-    const box = document.createElement('div');
-    box.className = 'unit-select-box';
-    chrome.appendChild(box);
-    ['n', 's', 'e', 'w', 'ne', 'nw', 'se', 'sw'].forEach((edge) => {
-      const h = document.createElement('div');
-      h.className = `unit-handle unit-handle-${edge}`;
-      h.dataset.edge = edge;
-      h.dataset.unitId = unit.id;
-      h.title = 'Drag to resize';
-      chrome.appendChild(h);
-    });
-    root.appendChild(chrome);
-  }
-
   return root;
 }
 
 function unitEl(id) {
-  return unitLayer.querySelector(`.px-shelf[data-unit-id="${id}"]`);
+  return unitLayer.querySelector(`.px-shelf[data-unit-id="${CSS.escape(id)}"]`);
 }
 
 function applyUnitGeometry(unit) {
@@ -287,16 +539,88 @@ function applyUnitGeometry(unit) {
   el.style.top = `${unit.y}%`;
   el.style.width = `${unit.w}%`;
   el.style.height = `${unit.h}%`;
+  scheduleOverlaySync();
 }
 
 function applyShelfHeights(unit) {
   const el = unitEl(unit.id);
   if (!el) return;
   layoutMetrics(unit.shelves).forEach(({ shelf, top, height }) => {
-    const row = el.querySelector(`.shelf-row[data-shelf-id="${shelf.id}"]`);
+    const row = el.querySelector(`.shelf-row[data-shelf-id="${CSS.escape(shelf.id)}"]`);
     if (!row) return;
     row.style.top = `${top}%`;
     row.style.height = `${height}%`;
+  });
+  scheduleOverlaySync();
+}
+
+function buildOverlayChrome() {
+  editOverlay.innerHTML = '';
+  if (!editing || !selected.unitId || !findUnit(selected.unitId)) {
+    editOverlay.hidden = true;
+    return;
+  }
+  editOverlay.hidden = false;
+
+  const chrome = document.createElement('div');
+  chrome.className = 'unit-chrome';
+  chrome.dataset.unitId = selected.unitId;
+  chrome.dataset.mode = selected.type || 'unit';
+
+  const box = document.createElement('div');
+  box.className = 'unit-select-box';
+  chrome.appendChild(box);
+
+  const move = document.createElement('div');
+  move.className = 'unit-move-bar';
+  move.dataset.unitId = selected.unitId;
+  move.title = 'Drag to move case';
+  chrome.appendChild(move);
+
+  ['n', 's', 'e', 'w', 'ne', 'nw', 'se', 'sw'].forEach((edge) => {
+    const h = document.createElement('div');
+    h.className = `unit-handle unit-handle-${edge}`;
+    h.dataset.edge = edge;
+    h.dataset.unitId = selected.unitId;
+    h.title = 'Drag to resize';
+    chrome.appendChild(h);
+  });
+
+  const label = document.createElement('div');
+  label.className = 'unit-chrome-label';
+  label.textContent =
+    selected.type === 'box' ? 'Box' : selected.type === 'shelf' ? 'Shelf' : 'Case';
+  chrome.appendChild(label);
+
+  editOverlay.appendChild(chrome);
+  syncOverlayToSelection();
+}
+
+function syncOverlayToSelection() {
+  const chrome = editOverlay.querySelector('.unit-chrome');
+  if (!chrome || !selected.unitId) return;
+  const el = unitEl(selected.unitId);
+  if (!el) {
+    editOverlay.hidden = true;
+    return;
+  }
+  // Prefer the front frame face so 3D side walls don't inflate the AABB.
+  const target = el.querySelector('.shelf-frame') || el;
+  const stageRect = stage.getBoundingClientRect();
+  const rect = target.getBoundingClientRect();
+  chrome.style.left = `${rect.left - stageRect.left}px`;
+  chrome.style.top = `${rect.top - stageRect.top}px`;
+  chrome.style.width = `${rect.width}px`;
+  chrome.style.height = `${rect.height}px`;
+  editOverlay.hidden = false;
+}
+
+function scheduleOverlaySync() {
+  if (!editing) return;
+  if (overlayRaf) return;
+  overlayRaf = requestAnimationFrame(() => {
+    overlayRaf = 0;
+    syncOverlayToSelection();
   });
 }
 
@@ -310,31 +634,37 @@ function buildScene() {
     unitLayer.appendChild(buildUnitDom(unit, i));
   });
 
+  buildOverlayChrome();
   syncInspector();
 }
 
 function syncInspector() {
   const shelf = selectedShelf();
   const unit = selectedUnit();
-  const hasShelf = Boolean(shelf);
-  weightInput.disabled = !hasShelf;
-  booksInput.disabled = !hasShelf;
+  const shelfControls = selected.type === 'shelf' || selected.type === 'box';
+  weightInput.disabled = !shelfControls || !shelf;
+  booksInput.disabled = !shelfControls || !shelf;
+
+  if (!editing) return;
 
   if (!unit) {
     weightOut.textContent = '—';
     booksOut.textContent = '—';
-    editHint.textContent = editing
-      ? 'Click a case, shelf, or box to select it. Drag the gold corners to resize the case.'
-      : '';
+    editHint.textContent = 'Click a case, shelf, or box. Drag the gold box to move; corners resize. Cases snap and cannot overlap.';
     return;
   }
 
-  if (selected.type === 'unit' || !shelf) {
-    weightInput.value = '1';
-    booksInput.value = '40';
+  if (selected.type === 'unit') {
     weightOut.textContent = '—';
     booksOut.textContent = '—';
-    editHint.textContent = `Case selected. Drag corners/edges to resize. Delete removes this case (${state.units.length} total).`;
+    editHint.textContent = `Case selected (${state.units.length} total). Drag the top bar to move, corners to resize. Delete removes this case.`;
+    return;
+  }
+
+  if (!shelf) {
+    weightOut.textContent = '—';
+    booksOut.textContent = '—';
+    editHint.textContent = 'Selection lost — click an object again.';
     return;
   }
 
@@ -344,9 +674,9 @@ function syncInspector() {
   booksOut.textContent = String(shelf.books);
 
   if (selected.type === 'box') {
-    editHint.textContent = 'Box selected. Delete removes the box.';
+    editHint.textContent = 'Box selected. Press Delete to remove it.';
   } else {
-    editHint.textContent = 'Shelf selected. Adjust height/books, or Delete to remove the shelf.';
+    editHint.textContent = `Shelf selected (${unit.shelves.length} in case). Adjust sliders or Delete to remove.`;
   }
 }
 
@@ -359,6 +689,8 @@ function setEditing(on) {
   if (!on) {
     selected = { type: null, unitId: null, shelfId: null, boxId: null };
     drag = null;
+    editOverlay.hidden = true;
+    editOverlay.innerHTML = '';
   } else if (!selected.unitId && state.units[0]) {
     selected = { type: 'unit', unitId: state.units[0].id, shelfId: null, boxId: null };
   }
@@ -373,7 +705,6 @@ function select(unitId, shelfId = null, boxId = null) {
     shelfId,
     boxId,
   };
-  // Rebuilding mid-drag destroys handles and drops pointer capture.
   if (drag) {
     syncInspector();
     return;
@@ -381,29 +712,34 @@ function select(unitId, shelfId = null, boxId = null) {
   buildScene();
 }
 
-function clampUnit(u) {
-  u.w = Math.min(90, Math.max(18, u.w));
-  u.h = Math.min(85, Math.max(22, u.h));
-  u.x = Math.min(100 - u.w, Math.max(0, u.x));
-  u.y = Math.min(100 - u.h, Math.max(0, u.y));
-}
+/* ── Mutations ── */
 
 function addAdjacent(dir) {
   const unit = selectedUnit() || state.units[0];
-  if (!unit || state.units.length >= 9) return;
-
-  const gap = 0.6;
-  let next;
-  if (dir === 'left') {
-    next = makeUnit(unit.x - unit.w - gap, unit.y, unit.w, unit.h);
-  } else if (dir === 'right') {
-    next = makeUnit(unit.x + unit.w + gap, unit.y, unit.w, unit.h);
-  } else if (dir === 'above') {
-    next = makeUnit(unit.x, unit.y - unit.h - gap, unit.w, unit.h);
-  } else {
-    next = makeUnit(unit.x, unit.y + unit.h + gap, unit.w, unit.h);
+  if (!unit) return;
+  if (state.units.length >= MAX_UNITS) {
+    editHint.textContent = `Maximum of ${MAX_UNITS} cases.`;
+    return;
   }
-  clampUnit(next);
+  const slot = findFreeSlot(unit, dir);
+  if (!slot) {
+    editHint.textContent = 'No free space in that direction — resize or move cases first.';
+    return;
+  }
+  const next = makeUnit(slot.x, slot.y, slot.w, slot.h);
+  // Keep the free-slot placement; light edge snap only if it stays clear.
+  const before = { x: next.x, y: next.y, w: next.w, h: next.h };
+  snapUnitPosition(next);
+  if (overlapsAny(next)) {
+    next.x = before.x;
+    next.y = before.y;
+    next.w = before.w;
+    next.h = before.h;
+  }
+  if (overlapsAny(next)) {
+    editHint.textContent = 'Could not place a non-overlapping case there.';
+    return;
+  }
   state.units.push(next);
   selected = { type: 'unit', unitId: next.id, shelfId: null, boxId: null };
   saveState();
@@ -412,7 +748,11 @@ function addAdjacent(dir) {
 
 function addShelf() {
   const unit = selectedUnit() || state.units[0];
-  if (!unit || unit.shelves.length >= 8) return;
+  if (!unit) return;
+  if (unit.shelves.length >= MAX_SHELVES) {
+    editHint.textContent = `Maximum of ${MAX_SHELVES} shelves per case.`;
+    return;
+  }
   const after = selected.shelfId
     ? unit.shelves.findIndex((s) => s.id === selected.shelfId)
     : unit.shelves.length - 1;
@@ -425,10 +765,18 @@ function addShelf() {
 
 function addBox() {
   const unit = selectedUnit() || state.units[0];
-  const shelf = selectedShelf() || unit?.shelves[unit.shelves.length - 1];
-  if (!unit || !shelf || shelf.boxes.length >= 4) return;
+  let shelf = selectedShelf();
+  if (!shelf && unit) shelf = unit.shelves[unit.shelves.length - 1];
+  if (!unit || !shelf) return;
+  if (shelf.boxes.length >= 4) {
+    editHint.textContent = 'Maximum of 4 boxes on a shelf.';
+    return;
+  }
   const used = shelf.boxes.reduce((n, b) => n + b.width, 0);
-  if (used > 0.7) return;
+  if (used > 0.7) {
+    editHint.textContent = 'Not enough free width on this shelf for another box.';
+    return;
+  }
   const box = {
     id: uid('box'),
     width: 0.14,
@@ -441,36 +789,60 @@ function addBox() {
 }
 
 function deleteSelected() {
-  if (selected.boxId) {
+  if (!selected.type || !selected.unitId) {
+    editHint.textContent = 'Nothing selected to delete.';
+    return;
+  }
+
+  if (selected.type === 'box') {
     const unit = selectedUnit();
     const shelf = selectedShelf();
-    if (!shelf) return;
+    if (!unit || !shelf || !selected.boxId) {
+      editHint.textContent = 'Could not find that box.';
+      return;
+    }
+    const before = shelf.boxes.length;
     shelf.boxes = shelf.boxes.filter((b) => b.id !== selected.boxId);
+    if (shelf.boxes.length === before) {
+      editHint.textContent = 'Box was already removed.';
+      return;
+    }
     selected = { type: 'shelf', unitId: unit.id, shelfId: shelf.id, boxId: null };
     saveState();
     buildScene();
     return;
   }
 
-  if (selected.shelfId) {
+  if (selected.type === 'shelf') {
     const unit = selectedUnit();
-    if (!unit || unit.shelves.length <= 2) {
-      editHint.textContent = 'Each case needs at least two shelves.';
+    if (!unit || !selected.shelfId) {
+      editHint.textContent = 'Could not find that shelf.';
       return;
     }
-    unit.shelves = unit.shelves.filter((s) => s.id !== selected.shelfId);
-    selected = { type: 'shelf', unitId: unit.id, shelfId: unit.shelves[0].id, boxId: null };
+    if (unit.shelves.length <= MIN_SHELVES) {
+      editHint.textContent = 'Each case needs at least one shelf.';
+      return;
+    }
+    const idx = unit.shelves.findIndex((s) => s.id === selected.shelfId);
+    if (idx < 0) {
+      editHint.textContent = 'Shelf was already removed.';
+      return;
+    }
+    unit.shelves.splice(idx, 1);
+    const next = unit.shelves[Math.min(idx, unit.shelves.length - 1)];
+    selected = { type: 'shelf', unitId: unit.id, shelfId: next.id, boxId: null };
     saveState();
     buildScene();
     return;
   }
 
-  if (selected.unitId) {
+  if (selected.type === 'unit') {
     if (state.units.length <= 1) {
       editHint.textContent = 'Keep at least one bookshelf case.';
       return;
     }
-    state.units = state.units.filter((u) => u.id !== selected.unitId);
+    const id = selected.unitId;
+    state.units = state.units.filter((u) => u.id !== id);
     selected = { type: 'unit', unitId: state.units[0].id, shelfId: null, boxId: null };
     saveState();
     buildScene();
@@ -493,6 +865,7 @@ function importState(file) {
   reader.onload = () => {
     try {
       const parsed = migrate(JSON.parse(String(reader.result)));
+      resolveAllOverlaps(parsed.units);
       state = parsed;
       saveState();
       selected = { type: 'unit', unitId: state.units[0]?.id || null, shelfId: null, boxId: null };
@@ -541,6 +914,7 @@ function apply() {
   world.style.setProperty('--rx', `${current.y * -2.5}deg`);
   world.style.setProperty('--shift-x', `${current.x * 8}px`);
   world.style.setProperty('--shift-y', `${current.y * 4}px`);
+  scheduleOverlaySync();
 }
 
 stage.addEventListener('pointermove', (e) => {
@@ -575,33 +949,70 @@ stage.addEventListener(
   { passive: true },
 );
 
+window.addEventListener('resize', scheduleOverlaySync);
+
 /* ── Edit interactions ── */
+
+function layerPctFromEvent(e) {
+  const wall = unitLayer.getBoundingClientRect();
+  return {
+    wallW: wall.width || 1,
+    wallH: wall.height || 1,
+    xPct: ((e.clientX - wall.left) / (wall.width || 1)) * 100,
+    yPct: ((e.clientY - wall.top) / (wall.height || 1)) * 100,
+  };
+}
+
+function startResizeDrag(unit, edge, e) {
+  const metrics = layerPctFromEvent(e);
+  drag = {
+    type: 'resize',
+    edge,
+    unitId: unit.id,
+    startX: e.clientX,
+    startY: e.clientY,
+    wallW: metrics.wallW,
+    wallH: metrics.wallH,
+    orig: { x: unit.x, y: unit.y, w: unit.w, h: unit.h },
+  };
+  selected = { type: 'unit', unitId: unit.id, shelfId: null, boxId: null };
+  syncInspector();
+  const label = editOverlay.querySelector('.unit-chrome-label');
+  if (label) label.textContent = 'Case';
+}
+
+function startMoveDrag(unit, e) {
+  const metrics = layerPctFromEvent(e);
+  drag = {
+    type: 'move',
+    unitId: unit.id,
+    startX: e.clientX,
+    startY: e.clientY,
+    wallW: metrics.wallW,
+    wallH: metrics.wallH,
+    orig: { x: unit.x, y: unit.y, w: unit.w, h: unit.h },
+  };
+  selected = { type: 'unit', unitId: unit.id, shelfId: null, boxId: null };
+  syncInspector();
+}
+
+editOverlay.addEventListener('pointerdown', (e) => {
+  if (!editing) return;
+  const handle = e.target.closest('.unit-handle');
+  const move = e.target.closest('.unit-move-bar');
+  const unit = findUnit((handle || move)?.dataset.unitId || selected.unitId);
+  if (!unit) return;
+  e.preventDefault();
+  e.stopPropagation();
+  if (handle) startResizeDrag(unit, handle.dataset.edge, e);
+  else if (move) startMoveDrag(unit, e);
+  else return;
+  e.currentTarget.setPointerCapture?.(e.pointerId);
+});
+
 unitLayer.addEventListener('pointerdown', (e) => {
   if (!editing) return;
-
-  const unitHandle = e.target.closest('.unit-handle');
-  if (unitHandle) {
-    const unit = findUnit(unitHandle.dataset.unitId);
-    if (!unit) return;
-    e.preventDefault();
-    e.stopPropagation();
-    const wall = unitLayer.getBoundingClientRect();
-    drag = {
-      type: 'resize',
-      edge: unitHandle.dataset.edge,
-      unitId: unit.id,
-      pointerId: e.pointerId,
-      startX: e.clientX,
-      startY: e.clientY,
-      wallW: wall.width || 1,
-      wallH: wall.height || 1,
-      orig: { x: unit.x, y: unit.y, w: unit.w, h: unit.h },
-    };
-    selected = { type: 'unit', unitId: unit.id, shelfId: null, boxId: null };
-    syncInspector();
-    unitHandle.setPointerCapture?.(e.pointerId);
-    return;
-  }
+  if (e.target.closest('.unit-handle')) return;
 
   const handle = e.target.closest('.shelf-handle');
   if (handle) {
@@ -615,7 +1026,6 @@ unitLayer.addEventListener('pointerdown', (e) => {
       type: 'divider',
       unitId: unit.id,
       index,
-      pointerId: e.pointerId,
       startY: e.clientY,
       startA: unit.shelves[index].weight,
       startB: unit.shelves[index + 1].weight,
@@ -626,6 +1036,7 @@ unitLayer.addEventListener('pointerdown', (e) => {
       shelfId: handle.dataset.shelfId,
       boxId: null,
     };
+    buildOverlayChrome();
     syncInspector();
     handle.setPointerCapture?.(e.pointerId);
     return;
@@ -677,6 +1088,20 @@ window.addEventListener('pointermove', (e) => {
     return;
   }
 
+  if (drag.type === 'move') {
+    const unit = findUnit(drag.unitId);
+    if (!unit) return;
+    const dx = ((e.clientX - drag.startX) / drag.wallW) * 100;
+    const dy = ((e.clientY - drag.startY) / drag.wallH) * 100;
+    unit.x = drag.orig.x + dx;
+    unit.y = drag.orig.y + dy;
+    unit.w = drag.orig.w;
+    unit.h = drag.orig.h;
+    clampUnitBounds(unit);
+    applyUnitGeometry(unit);
+    return;
+  }
+
   if (drag.type === 'resize') {
     const unit = findUnit(drag.unitId);
     if (!unit) return;
@@ -701,18 +1126,47 @@ window.addEventListener('pointermove', (e) => {
     unit.y = y;
     unit.w = w;
     unit.h = h;
-    clampUnit(unit);
+    clampUnitBounds(unit);
     applyUnitGeometry(unit);
   }
 });
 
-window.addEventListener('pointerup', (e) => {
+window.addEventListener('pointerup', () => {
   if (!drag) return;
   const ended = drag;
   drag = null;
+  const unit = findUnit(ended.unitId);
+  if (unit && (ended.type === 'move' || ended.type === 'resize')) {
+    finalizeUnitLayout(unit, {
+      snap: true,
+      edge: ended.type === 'resize' ? ended.edge : null,
+    });
+    // If still overlapping after separation, revert to drag start.
+    if (overlapsAny(unit, GAP * 0.25, unit.id)) {
+      unit.x = ended.orig.x;
+      unit.y = ended.orig.y;
+      unit.w = ended.orig.w;
+      unit.h = ended.orig.h;
+      clampUnitBounds(unit);
+    }
+    applyUnitGeometry(unit);
+  }
   saveState();
-  // Refresh chrome/selection after geometry drag finishes.
-  if (ended.type === 'resize' || ended.type === 'divider') buildScene();
+  buildScene();
+});
+
+window.addEventListener('keydown', (e) => {
+  if (!editing) return;
+  if (e.target.matches('input, textarea')) return;
+  if (e.key === 'Delete' || e.key === 'Backspace') {
+    e.preventDefault();
+    deleteSelected();
+  }
+  if (e.key === 'Escape') {
+    if (selected.type !== 'unit' && selected.unitId) {
+      select(selected.unitId);
+    }
+  }
 });
 
 btnEdit.addEventListener('click', () => setEditing(!editing));
@@ -721,17 +1175,19 @@ document.getElementById('btn-edit-done')?.addEventListener('click', () => setEdi
 editPanel.addEventListener('click', (e) => {
   const btn = e.target.closest('[data-act]');
   if (!btn) return;
+  e.preventDefault();
+  e.stopPropagation();
   const act = btn.dataset.act;
   if (act === 'add-shelf') addShelf();
-  if (act === 'add-box') addBox();
-  if (act === 'delete') deleteSelected();
-  if (act === 'add-left') addAdjacent('left');
-  if (act === 'add-right') addAdjacent('right');
-  if (act === 'add-above') addAdjacent('above');
-  if (act === 'add-below') addAdjacent('below');
-  if (act === 'export') exportState();
-  if (act === 'import') fileIn.click();
-  if (act === 'reset') {
+  else if (act === 'add-box') addBox();
+  else if (act === 'delete') deleteSelected();
+  else if (act === 'add-left') addAdjacent('left');
+  else if (act === 'add-right') addAdjacent('right');
+  else if (act === 'add-above') addAdjacent('above');
+  else if (act === 'add-below') addAdjacent('below');
+  else if (act === 'export') exportState();
+  else if (act === 'import') fileIn.click();
+  else if (act === 'reset') {
     state = defaultState();
     selected = { type: 'unit', unitId: state.units[0].id, shelfId: null, boxId: null };
     saveState();
@@ -747,21 +1203,27 @@ fileIn.addEventListener('change', () => {
 
 weightInput.addEventListener('input', () => {
   const shelf = selectedShelf();
-  if (!shelf) return;
+  if (!shelf || (selected.type !== 'shelf' && selected.type !== 'box')) return;
   shelf.weight = Number(weightInput.value);
   weightOut.textContent = shelf.weight.toFixed(2);
+  const unit = selectedUnit();
+  if (unit) applyShelfHeights(unit);
+});
+weightInput.addEventListener('change', () => {
+  saveState();
   buildScene();
 });
-weightInput.addEventListener('change', saveState);
 
 booksInput.addEventListener('input', () => {
   const shelf = selectedShelf();
-  if (!shelf) return;
+  if (!shelf || (selected.type !== 'shelf' && selected.type !== 'box')) return;
   shelf.books = Number(booksInput.value);
   booksOut.textContent = String(shelf.books);
+});
+booksInput.addEventListener('change', () => {
+  saveState();
   buildScene();
 });
-booksInput.addEventListener('change', saveState);
 
 depthInput.addEventListener('input', () => {
   state.depth = Number(depthInput.value);
@@ -769,6 +1231,7 @@ depthInput.addEventListener('input', () => {
   unitLayer.querySelectorAll('.px-shelf').forEach((el) => {
     el.style.setProperty('--shelf-d', `${state.depth}px`);
   });
+  scheduleOverlaySync();
 });
 depthInput.addEventListener('change', saveState);
 

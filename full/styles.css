@@ -183,26 +183,69 @@ button {
     0 24px 48px rgba(0, 0, 0, 0.35);
 }
 
+/* Screen-space selection overlay — tracks getBoundingClientRect of the case */
+.edit-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 18;
+  pointer-events: none;
+  overflow: visible;
+}
+
+.edit-overlay[hidden] {
+  display: none !important;
+}
+
 .unit-chrome {
   position: absolute;
-  inset: -2px;
-  z-index: 40;
-  transform: translateZ(calc(var(--shelf-d) + 48px));
-  transform-style: flat;
+  z-index: 19;
   pointer-events: none;
+  box-sizing: border-box;
 }
 
 .unit-select-box {
   position: absolute;
   inset: 0;
   border: 2px solid #e8b060;
-  box-shadow: 0 0 0 1px rgba(40, 24, 22, 0.65);
+  box-shadow:
+    0 0 0 1px rgba(40, 24, 22, 0.65),
+    inset 0 0 0 1px rgba(255, 220, 150, 0.25);
+  background: transparent;
   pointer-events: none;
+}
+
+.unit-move-bar {
+  position: absolute;
+  left: 22px;
+  right: 22px;
+  top: -4px;
+  height: 18px;
+  pointer-events: auto;
+  touch-action: none;
+  cursor: move;
+  background: linear-gradient(180deg, rgba(232, 176, 96, 0.55), rgba(232, 176, 96, 0.15));
+  border: 1px solid rgba(58, 36, 32, 0.55);
+  border-radius: 2px;
+}
+
+.unit-chrome-label {
+  position: absolute;
+  left: 0;
+  top: -22px;
+  padding: 2px 8px;
+  color: #322021;
+  background: #e8b060;
+  border: 1px solid #3a2420;
+  font: 700 9px var(--font-pixel);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  pointer-events: none;
+  white-space: nowrap;
 }
 
 .unit-handle {
   position: absolute;
-  z-index: 41;
+  z-index: 20;
   pointer-events: auto;
   touch-action: none;
   background: transparent;
