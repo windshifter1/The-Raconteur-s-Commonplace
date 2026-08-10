@@ -533,14 +533,12 @@ function buildUnitDom(unit, unitIndex) {
   });
 
   if (editing) {
-    // Edge-only hit targets so the wood frame selects the case without blocking shelves.
-    ['n', 's', 'e', 'w'].forEach((side) => {
-      const hit = document.createElement('div');
-      hit.className = `case-hit case-hit-${side}`;
-      hit.dataset.selectUnit = unit.id;
-      hit.title = 'Select case';
-      root.appendChild(hit);
-    });
+    // Flat front pick plane — CSS 3D faces don't receive clicks reliably.
+    const pick = document.createElement('div');
+    pick.className = 'unit-pick';
+    pick.dataset.unitId = unit.id;
+    pick.title = 'Click to select · drag shelf to resize height';
+    root.appendChild(pick);
   }
 
   return root;
@@ -1044,6 +1042,28 @@ function startMoveDrag(unit, e) {
   syncInspector();
 }
 
+function shelfIndexAtPickY(unit, clientY, pickEl) {
+  const rect = pickEl.getBoundingClientRect();
+  const y = (clientY - rect.top) / (rect.height || 1);
+  const metrics = layoutMetrics(unit.shelves);
+  for (let i = 0; i < metrics.length; i++) {
+    const m = metrics[i];
+    const top = m.top / 100;
+    const bottom = (m.top + m.height) / 100;
+    if (y >= top && y < bottom) return i;
+  }
+  if (y <= 0) return 0;
+  return Math.max(0, unit.shelves.length - 1);
+}
+
+function isFrameEdgeClick(pickEl, clientX, clientY) {
+  const rect = pickEl.getBoundingClientRect();
+  const edge = 18;
+  const x = clientX - rect.left;
+  const y = clientY - rect.top;
+  return x <= edge || y <= edge || x >= rect.width - edge || y >= rect.height - edge;
+}
+
 function startShelfHeightDrag(unit, shelfId, e) {
   const index = unit.shelves.findIndex((s) => s.id === shelfId);
   if (index < 0) return false;
@@ -1057,12 +1077,15 @@ function startShelfHeightDrag(unit, shelfId, e) {
     armed: false,
   };
   selected = { type: 'shelf', unitId: unit.id, shelfId, boxId: null };
-  // Avoid rebuild so pointer capture survives.
   unitLayer.querySelectorAll('.shelf-row').forEach((row) => {
     row.classList.toggle(
       'is-selected',
       row.dataset.unitId === unit.id && row.dataset.shelfId === shelfId,
     );
+  });
+  unitLayer.querySelectorAll('.px-shelf').forEach((el) => {
+    el.classList.toggle('is-active-unit', el.dataset.unitId === unit.id);
+    el.classList.remove('is-unit-selected');
   });
   buildOverlayChrome();
   syncInspector();
@@ -1076,7 +1099,6 @@ function applyShelfDrag(e) {
   if (!drag.armed) {
     if (Math.abs(dy) < 5) return;
     drag.armed = true;
-    // Dragging down grows this shelf against the neighbor below (or above if last).
     if (drag.index < unit.shelves.length - 1) {
       drag.pair = drag.index + 1;
       drag.sign = 1;
@@ -1089,14 +1111,12 @@ function applyShelfDrag(e) {
   }
   if (drag.pair == null) return;
 
-  const cavity = unitEl(unit.id)?.querySelector('[data-cavity]');
+  const cavity = unitEl(unit.id)?.querySelector('.unit-pick') || unitEl(unit.id);
   const cavityH = cavity?.getBoundingClientRect().height || 1;
   const total = drag.weights.reduce((a, b) => a + b, 0) || 1;
   const delta = (dy / cavityH) * total * 1.35 * drag.sign;
-  const a = Math.max(0.4, drag.weights[drag.index] + delta);
-  const b = Math.max(0.4, drag.weights[drag.pair] - delta);
-  unit.shelves[drag.index].weight = a;
-  unit.shelves[drag.pair].weight = b;
+  unit.shelves[drag.index].weight = Math.max(0.4, drag.weights[drag.index] + delta);
+  unit.shelves[drag.pair].weight = Math.max(0.4, drag.weights[drag.pair] - delta);
   applyShelfHeights(unit);
 }
 
@@ -1104,64 +1124,39 @@ editOverlay.addEventListener('pointerdown', (e) => {
   if (!editing) return;
   const handle = e.target.closest('.unit-handle');
   const move = e.target.closest('.unit-move-bar');
-  const unit = findUnit((handle || move)?.dataset.unitId || selected.unitId);
+  if (!handle && !move) return;
+  const unit = findUnit((handle || move).dataset.unitId || selected.unitId);
   if (!unit) return;
   e.preventDefault();
   e.stopPropagation();
   if (handle) startResizeDrag(unit, handle.dataset.edge, e);
-  else if (move) startMoveDrag(unit, e);
-  else return;
-  e.currentTarget.setPointerCapture?.(e.pointerId);
+  else startMoveDrag(unit, e);
+  (handle || move).setPointerCapture?.(e.pointerId);
 });
 
 unitLayer.addEventListener('pointerdown', (e) => {
   if (!editing) return;
-  if (e.target.closest('.unit-handle')) return;
 
-  // Case frame / rim — select the whole case (works for any case, not only the active one).
-  const caseHit = e.target.closest('.case-hit');
-  if (caseHit) {
-    e.preventDefault();
-    e.stopPropagation();
-    select(caseHit.dataset.selectUnit);
-    return;
-  }
-
-  // Clicks on the wood border of the frame (not shelf contents).
-  if (e.target.matches('.shelf-frame') || e.target.classList?.contains('shelf-frame')) {
-    e.preventDefault();
-    e.stopPropagation();
-    select(e.target.dataset.selectUnit);
-    return;
-  }
-
-  const handle = e.target.closest('.shelf-handle, .shelf-plank.is-draggable');
-  if (handle) {
-    const unit = findUnit(handle.dataset.unitId);
+  const pick = e.target.closest('.unit-pick');
+  if (pick) {
+    const unit = findUnit(pick.dataset.unitId);
     if (!unit) return;
     e.preventDefault();
     e.stopPropagation();
-    if (startShelfHeightDrag(unit, handle.dataset.shelfId, e)) {
-      handle.setPointerCapture?.(e.pointerId);
+
+    if (isFrameEdgeClick(pick, e.clientX, e.clientY)) {
+      select(unit.id);
+      return;
     }
-    return;
-  }
 
-  const box = e.target.closest('.shelf-crate');
-  if (box) {
-    e.preventDefault();
-    e.stopPropagation();
-    select(box.dataset.unitId, box.dataset.shelfId, box.dataset.boxId);
-    return;
-  }
-
-  const row = e.target.closest('.shelf-row');
-  if (row) {
-    e.preventDefault();
-    e.stopPropagation();
-    const unit = findUnit(row.dataset.unitId);
-    if (unit && startShelfHeightDrag(unit, row.dataset.shelfId, e)) {
-      row.setPointerCapture?.(e.pointerId);
+    const index = shelfIndexAtPickY(unit, e.clientY, pick);
+    const shelf = unit.shelves[index];
+    if (!shelf) {
+      select(unit.id);
+      return;
+    }
+    if (startShelfHeightDrag(unit, shelf.id, e)) {
+      pick.setPointerCapture?.(e.pointerId);
     }
     return;
   }
@@ -1176,19 +1171,8 @@ unitLayer.addEventListener('pointerdown', (e) => {
 window.addEventListener('pointermove', (e) => {
   if (!drag) return;
 
-  if (drag.type === 'shelf-drag' || drag.type === 'divider') {
-    if (drag.type === 'shelf-drag') applyShelfDrag(e);
-    else {
-      const unit = findUnit(drag.unitId);
-      if (!unit) return;
-      const cavity = unitEl(unit.id)?.querySelector('[data-cavity]');
-      const cavityH = cavity?.getBoundingClientRect().height || 1;
-      const dy = e.clientY - drag.startY;
-      const delta = (dy / cavityH) * totalWeight(unit.shelves) * 1.4;
-      unit.shelves[drag.index].weight = Math.max(0.4, drag.startA + delta);
-      unit.shelves[drag.index + 1].weight = Math.max(0.4, drag.startB - delta);
-      applyShelfHeights(unit);
-    }
+  if (drag.type === 'shelf-drag') {
+    applyShelfDrag(e);
     return;
   }
 
@@ -1212,55 +1196,18 @@ window.addEventListener('pointermove', (e) => {
     const dx = ((e.clientX - drag.startX) / drag.wallW) * 100;
     const dy = ((e.clientY - drag.startY) / drag.wallH) * 100;
     const o = drag.orig;
+    let { x, y, w, h } = o;
     const edge = drag.edge;
-    let x = o.x;
-    let y = o.y;
-    let w = o.w;
-    let h = o.h;
 
-    if (edge.includes('e')) {
-      const right = o.x + o.w + dx;
-      if (right - o.x < MIN_W) {
-        // Past minimum width: keep size at min and move so the right edge follows the pointer.
-        w = MIN_W;
-        x = right - MIN_W;
-      } else {
-        w = right - o.x;
-        x = o.x;
-      }
-    }
+    if (edge.includes('e')) w = o.w + dx;
     if (edge.includes('w')) {
-      const left = o.x + dx;
-      const right = o.x + o.w;
-      if (right - left < MIN_W) {
-        w = MIN_W;
-        x = right - MIN_W;
-      } else {
-        x = left;
-        w = right - left;
-      }
+      w = o.w - dx;
+      x = o.x + dx;
     }
-    if (edge.includes('s')) {
-      const bottom = o.y + o.h + dy;
-      if (bottom - o.y < MIN_H) {
-        // Past minimum height: move so the bottom edge follows the pointer.
-        h = MIN_H;
-        y = bottom - MIN_H;
-      } else {
-        h = bottom - o.y;
-        y = o.y;
-      }
-    }
+    if (edge.includes('s')) h = o.h + dy;
     if (edge.includes('n')) {
-      const top = o.y + dy;
-      const bottom = o.y + o.h;
-      if (bottom - top < MIN_H) {
-        h = MIN_H;
-        y = bottom - MIN_H;
-      } else {
-        y = top;
-        h = bottom - top;
-      }
+      h = o.h - dy;
+      y = o.y + dy;
     }
 
     unit.x = x;
@@ -1279,7 +1226,6 @@ window.addEventListener('pointerup', () => {
   const unit = findUnit(ended.unitId);
 
   if (ended.type === 'shelf-drag' && !ended.armed) {
-    // Simple click — commit shelf selection with a full rebuild.
     saveState();
     buildScene();
     return;

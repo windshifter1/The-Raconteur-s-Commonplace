@@ -504,35 +504,17 @@ button {
   cursor: ns-resize;
 }
 
-.case-hit {
+/* Flat pick plane in front of 3D geometry so clicks actually register */
+.unit-pick {
   position: absolute;
-  z-index: 12;
+  inset: 0;
+  z-index: 50;
+  transform: translateZ(calc(var(--shelf-d) + 56px));
   pointer-events: auto;
   touch-action: none;
+  cursor: var(--cursor-active);
   background: transparent;
 }
-
-.case-hit-n,
-.case-hit-s {
-  left: 0;
-  right: 0;
-  height: 18px;
-  cursor: var(--cursor-active);
-}
-
-.case-hit-n { top: -2px; }
-.case-hit-s { bottom: -2px; }
-
-.case-hit-e,
-.case-hit-w {
-  top: 16px;
-  bottom: 16px;
-  width: 18px;
-  cursor: var(--cursor-active);
-}
-
-.case-hit-e { right: -2px; }
-.case-hit-w { left: -2px; }
 
 .is-editing .px-shelf {
   z-index: 1;
@@ -551,6 +533,7 @@ button {
   z-index: 8;
   cursor: ns-resize;
   border-radius: 2px;
+  pointer-events: none; /* picking goes through unit-pick */
 }
 
 .shelf-row.is-selected .shelf-handle::after,
