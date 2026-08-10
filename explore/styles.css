@@ -317,6 +317,11 @@ input {
     grid-template-columns: 1fr;
   }
 
+  .brand-mark {
+    width: 82px;
+    height: 63px;
+  }
+
   .mock-search {
     flex-wrap: wrap;
   }
