@@ -47,6 +47,13 @@ input {
   overflow-x: hidden;
 }
 
+.explore-frame {
+  position: relative;
+  z-index: 1;
+  width: min(1100px, 100%);
+  margin: 0 auto;
+}
+
 .explore-page::before {
   content: '';
   position: fixed;
@@ -71,20 +78,31 @@ input {
 }
 
 .wordmark {
-  display: flex;
-  align-items: center;
-  gap: 13px;
+  display: grid;
+  grid-template-columns: auto auto;
+  align-items: stretch;
+  column-gap: 14px;
   text-shadow: 2px 3px 0 rgba(30, 22, 23, 0.52);
+}
+
+.wordmark-copy {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  min-height: 0;
 }
 
 .brand-mark {
   display: block;
-  width: 56px;
-  height: 56px;
+  height: 100%;
+  width: auto;
+  aspect-ratio: 624 / 477;
+  object-fit: contain;
+  object-position: left center;
   image-rendering: pixelated;
   image-rendering: crisp-edges;
-  flex-shrink: 0;
-  filter: drop-shadow(3px 3px 0 rgba(38, 25, 25, 0.55));
+  background: transparent;
+  filter: drop-shadow(2px 2px 0 rgba(38, 25, 25, 0.55));
 }
 
 .wordmark-title {
@@ -150,7 +168,6 @@ input {
 .explore-main {
   position: relative;
   z-index: 1;
-  max-width: 1100px;
 }
 
 .hero-copy {
@@ -300,11 +317,6 @@ input {
 @media (max-width: 640px) {
   .feature-grid {
     grid-template-columns: 1fr;
-  }
-
-  .brand-mark {
-    width: 44px;
-    height: 44px;
   }
 
   .mock-search {

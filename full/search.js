@@ -100,12 +100,11 @@ export async function runSearch(rawQuery) {
   const q = String(rawQuery || '')
     .trim()
     .toLowerCase();
-  showResults();
   if (!q) {
-    listEl.innerHTML = '';
-    setStatus('Type a title, author, or keyword.');
+    hideResults();
     return;
   }
+  showResults();
   setStatus('Searching the commonplace…');
   listEl.innerHTML = '';
   try {
