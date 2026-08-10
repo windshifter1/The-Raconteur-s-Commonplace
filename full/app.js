@@ -31,9 +31,16 @@ const MIN_SHELF_PX = 65;
 const PLANE_ASPECT = 16 / 9;
 /** Shrink the plane slightly so 3D-extruded cases at the edges stay on-screen. */
 const PLANE_FIT = 0.88;
+/** Desktop reference size — small viewports keep this scale and pan instead. */
+const SCENE_MIN_W = 1280;
+const SCENE_MIN_H = 720;
+/** Extra bleed so the room still fills the frame on large screens (old ~inset). */
+const CAMERA_BLEED_X = 1.2;
+const CAMERA_BLEED_Y = 1.12;
 
 const world = document.getElementById('world');
 const stage = document.getElementById('stage');
+const sceneCamera = document.getElementById('scene-camera');
 const wall = document.getElementById('wall');
 const unitLayer = document.getElementById('unit-layer');
 const editOverlay = document.getElementById('edit-overlay');
@@ -166,6 +173,9 @@ let state = defaultState();
 let editing = false;
 let selected = { type: null, unitId: null, shelfId: null, boxId: null };
 let drag = null;
+/** Screen pan offset (px) for small viewports that keep desktop scene scale. */
+let pan = { x: 0, y: 0 };
+let panDrag = null;
 let overlayRaf = 0;
 
 async function boot() {
@@ -183,10 +193,44 @@ async function boot() {
 }
 
 /**
+ * Keep the 3D room at least desktop-sized. Small screens pan instead of scaling down.
+ */
+function syncCameraFrame() {
+  if (!stage || !sceneCamera) return;
+  const sw = stage.clientWidth || window.innerWidth || SCENE_MIN_W;
+  const sh = stage.clientHeight || window.innerHeight || SCENE_MIN_H;
+  const w = Math.max(sw * CAMERA_BLEED_X, SCENE_MIN_W);
+  const h = Math.max(sh * CAMERA_BLEED_Y, SCENE_MIN_H);
+  sceneCamera.style.width = `${w}px`;
+  sceneCamera.style.height = `${h}px`;
+  sceneCamera.style.left = `${(sw - w) / 2}px`;
+  sceneCamera.style.top = `${(sh - h) / 2}px`;
+  sceneCamera.style.right = 'auto';
+  sceneCamera.style.bottom = 'auto';
+  sceneCamera.style.inset = 'auto';
+  clampPan(sw, sh, w, h);
+  applyPan();
+}
+
+function clampPan(sw, sh, camW, camH) {
+  const maxX = Math.max(0, (camW - sw) / 2);
+  const maxY = Math.max(0, (camH - sh) / 2);
+  pan.x = Math.min(maxX, Math.max(-maxX, pan.x));
+  pan.y = Math.min(maxY, Math.max(-maxY, pan.y));
+}
+
+function applyPan() {
+  if (!world) return;
+  world.style.setProperty('--pan-x', `${pan.x}px`);
+  world.style.setProperty('--pan-y', `${pan.y}px`);
+}
+
+/**
  * Fit the unit placement plane inside the back wall at a fixed aspect ratio.
  * Sized/centered in layout % (no CSS translate) so case positions stay stable.
  */
 function syncPlacementPlane() {
+  syncCameraFrame();
   if (!wall || !unitLayer) return;
   const wallW = wall.clientWidth || 1;
   const wallH = wall.clientHeight || 1;
@@ -1399,15 +1443,14 @@ function importState(file) {
   reader.readAsText(file);
 }
 
-/* ── Parallax ── */
+/* ── Parallax + pan ── */
 const target = { x: 0, y: 0 };
 const current = { x: 0, y: 0 };
 let frame = null;
-let touchStart = { x: 0, y: 0 };
 const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
 function aim(x, y) {
-  if (editing || drag) {
+  if (editing || drag || panDrag) {
     target.x = 0;
     target.y = 0;
   } else {
@@ -1440,8 +1483,57 @@ function apply() {
   scheduleOverlaySync();
 }
 
+function canStartTouchPan(targetEl) {
+  // On the viewer, any finger drag pans. In the studio, don't steal case edits.
+  if (VIEW_ONLY || !editing) return true;
+  return !targetEl?.closest?.(
+    '.unit-pick, .unit-handle, .unit-move-bar, .edit-panel, .quiet-tools, .search-shell, .search-dock',
+  );
+}
+
+function startPanDrag(e) {
+  panDrag = {
+    pointerId: e.pointerId,
+    startX: e.clientX,
+    startY: e.clientY,
+    origX: pan.x,
+    origY: pan.y,
+  };
+  world?.classList.add('is-panning');
+  aim(0, 0);
+  try {
+    stage.setPointerCapture?.(e.pointerId);
+  } catch {
+    /* ignore */
+  }
+}
+
+function movePanDrag(e) {
+  if (!panDrag || e.pointerId !== panDrag.pointerId) return;
+  pan.x = panDrag.origX + (e.clientX - panDrag.startX);
+  pan.y = panDrag.origY + (e.clientY - panDrag.startY);
+  const sw = stage?.clientWidth || window.innerWidth || SCENE_MIN_W;
+  const sh = stage?.clientHeight || window.innerHeight || SCENE_MIN_H;
+  const camW = sceneCamera?.offsetWidth || Math.max(sw * CAMERA_BLEED_X, SCENE_MIN_W);
+  const camH = sceneCamera?.offsetHeight || Math.max(sh * CAMERA_BLEED_Y, SCENE_MIN_H);
+  clampPan(sw, sh, camW, camH);
+  applyPan();
+  scheduleOverlaySync();
+}
+
+function endPanDrag(e) {
+  if (!panDrag) return;
+  if (e && panDrag.pointerId !== e.pointerId) return;
+  panDrag = null;
+  world?.classList.remove('is-panning');
+}
+
 if (stage) {
   stage.addEventListener('pointermove', (e) => {
+    if (panDrag) {
+      movePanDrag(e);
+      return;
+    }
     if (drag || e.pointerType === 'touch') return;
     if (editing) return;
     const rect = stage.getBoundingClientRect();
@@ -1449,29 +1541,27 @@ if (stage) {
   });
 
   stage.addEventListener('pointerleave', () => {
-    if (!drag) aim(0, 0);
+    if (!drag && !panDrag) aim(0, 0);
   });
 
-  stage.addEventListener(
-    'touchstart',
-    (e) => {
-      touchStart = { x: e.touches[0].clientX, y: e.touches[0].clientY };
-    },
-    { passive: true },
-  );
+  stage.addEventListener('pointerdown', (e) => {
+    const isMiddle = e.pointerType === 'mouse' && e.button === 1;
+    const isTouchPan = e.pointerType === 'touch' && canStartTouchPan(e.target);
+    if (!isMiddle && !isTouchPan) return;
+    e.preventDefault();
+    startPanDrag(e);
+  });
 
-  stage.addEventListener(
-    'touchmove',
-    (e) => {
-      if (editing || drag) return;
-      const t = e.touches[0];
-      aim(
-        Math.max(-1, Math.min(1, (t.clientX - touchStart.x) / 140)),
-        Math.max(-1, Math.min(1, (t.clientY - touchStart.y) / 140)),
-      );
-    },
-    { passive: true },
-  );
+  stage.addEventListener('pointerup', endPanDrag);
+  stage.addEventListener('pointercancel', endPanDrag);
+
+  // Prevent browser auto-scroll / paste from middle click.
+  stage.addEventListener('mousedown', (e) => {
+    if (e.button === 1) e.preventDefault();
+  });
+  stage.addEventListener('auxclick', (e) => {
+    if (e.button === 1) e.preventDefault();
+  });
 }
 
 window.addEventListener('resize', () => {
