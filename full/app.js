@@ -188,28 +188,46 @@ async function boot() {
   } catch {}
 
   sanitizeState(state);
+  // Drop any leftover inline camera box from older builds.
+  if (sceneCamera) {
+    sceneCamera.style.width = '';
+    sceneCamera.style.height = '';
+    sceneCamera.style.left = '';
+    sceneCamera.style.top = '';
+    sceneCamera.style.right = '';
+    sceneCamera.style.bottom = '';
+    sceneCamera.style.inset = '';
+  }
+  centerView();
   buildScene();
+  // Mobile often lays out after the first paint — refit once the stage has size.
+  requestAnimationFrame(() => {
+    centerView();
+    syncPlacementPlane();
+    buildScene();
+    requestAnimationFrame(() => {
+      centerView();
+      syncPlacementPlane();
+      buildScene();
+    });
+  });
   if (reduceMotion) apply();
 }
 
 /**
- * Keep the 3D room at least desktop-sized. Small screens pan instead of scaling down.
+ * Clamp pan against the CSS-sized camera. Positioning is CSS-centered
+ * (left/top 50% + translate -50%); JS only owns --pan-x / --pan-y.
  */
 function syncCameraFrame() {
-  if (!stage || !sceneCamera) return;
-  const sw = stage.clientWidth || window.innerWidth || SCENE_MIN_W;
-  const sh = stage.clientHeight || window.innerHeight || SCENE_MIN_H;
-  const w = Math.max(sw * CAMERA_BLEED_X, SCENE_MIN_W);
-  const h = Math.max(sh * CAMERA_BLEED_Y, SCENE_MIN_H);
-  sceneCamera.style.width = `${w}px`;
-  sceneCamera.style.height = `${h}px`;
-  sceneCamera.style.left = `${(sw - w) / 2}px`;
-  sceneCamera.style.top = `${(sh - h) / 2}px`;
-  sceneCamera.style.right = 'auto';
-  sceneCamera.style.bottom = 'auto';
-  sceneCamera.style.inset = 'auto';
-  clampPan(sw, sh, w, h);
+  if (!stage || !sceneCamera || !world) return;
+  const sw = stage.clientWidth;
+  const sh = stage.clientHeight;
+  if (sw < 2 || sh < 2) return false;
+  const camW = sceneCamera.offsetWidth || Math.max(sw * CAMERA_BLEED_X, SCENE_MIN_W);
+  const camH = sceneCamera.offsetHeight || Math.max(sh * CAMERA_BLEED_Y, SCENE_MIN_H);
+  clampPan(sw, sh, camW, camH);
   applyPan();
+  return true;
 }
 
 function clampPan(sw, sh, camW, camH) {
@@ -223,6 +241,13 @@ function applyPan() {
   if (!world) return;
   world.style.setProperty('--pan-x', `${pan.x}px`);
   world.style.setProperty('--pan-y', `${pan.y}px`);
+}
+
+/** Reset view to the geometric centre of the room/bookshelf. */
+function centerView() {
+  pan.x = 0;
+  pan.y = 0;
+  applyPan();
 }
 
 /**
@@ -1568,6 +1593,26 @@ window.addEventListener('resize', () => {
   syncPlacementPlane();
   buildScene();
 });
+
+window.addEventListener('pageshow', () => {
+  centerView();
+  syncPlacementPlane();
+  buildScene();
+});
+
+if (stage && typeof ResizeObserver !== 'undefined') {
+  let lastSize = '';
+  new ResizeObserver(() => {
+    const key = `${stage.clientWidth}x${stage.clientHeight}`;
+    if (key === lastSize || stage.clientWidth < 2) return;
+    const first = !lastSize;
+    lastSize = key;
+    if (first) centerView();
+    syncPlacementPlane();
+    if (first) buildScene();
+    else scheduleOverlaySync();
+  }).observe(stage);
+}
 
 /* Edit interaction listeners omitted — VIEW_ONLY bookshelf viewer. */
 bindSearchUi();
