@@ -835,10 +835,9 @@ button {
   z-index: 24;
   top: clamp(18px, 4.5vw, 52px);
   left: clamp(18px, 5vw, 76px);
-  display: grid;
-  grid-template-columns: auto auto;
-  align-items: stretch;
-  column-gap: 14px;
+  display: flex;
+  align-items: center;
+  gap: 14px;
   text-shadow: 2px 3px 0 rgba(30, 22, 23, 0.52);
   pointer-events: none;
 }
@@ -846,15 +845,14 @@ button {
 .wordmark-copy {
   display: flex;
   flex-direction: column;
-  justify-content: space-between;
   min-height: 0;
 }
 
 .brand-mark {
   display: block;
-  height: 100%;
-  width: auto;
-  aspect-ratio: 624 / 477;
+  width: 110px;
+  height: 84px;
+  flex-shrink: 0;
   object-fit: contain;
   object-position: left center;
   image-rendering: pixelated;
@@ -1170,6 +1168,11 @@ button {
   .wordmark-sub {
     margin-top: 5px;
     font-size: 7px;
+  }
+
+  .brand-mark {
+    width: 82px;
+    height: 63px;
   }
 
   .quiet-tools {
