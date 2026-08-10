@@ -37,10 +37,7 @@ jobs:
             exit 1
           fi
 
-      - name: Install Full Experience deps
-        run: npm --prefix full ci
-
-      - name: Build Kobo catalogue + Full Experience
+      - name: Build catalogue + Full Experience
         env:
           VITE_SUPABASE_URL: ${{ vars.VITE_SUPABASE_URL || secrets.VITE_SUPABASE_URL }}
           VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}

@@ -1,14 +1,11 @@
 {
   "name": "the-raconteurs-commonplace",
   "private": true,
-  "version": "0.4.0",
+  "version": "0.5.0",
   "type": "module",
   "scripts": {
-    "build": "node kobo/build.mjs && node mockup/build.mjs && npm run build:full",
+    "build": "node kobo/build.mjs && node scripts/copy-full.mjs",
     "build:kobo": "node kobo/build.mjs",
-    "build:mockup": "node mockup/build.mjs",
-    "build:full": "npm --prefix full run build",
-    "dev:full": "npm --prefix full run dev",
-    "preview:full": "npm --prefix full run preview"
+    "build:full": "node scripts/copy-full.mjs"
   }
 }
