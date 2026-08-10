@@ -166,57 +166,85 @@ button {
   pointer-events: auto;
 }
 
-.px-shelf.is-unit-selected .shelf-frame {
+.px-shelf.is-unit-selected .shelf-frame,
+.px-shelf.is-active-unit .shelf-frame {
   box-shadow:
     inset 0 0 0 3px rgba(195, 127, 70, 0.3),
-    0 0 0 2px rgba(232, 176, 96, 0.9),
+    0 0 0 2px rgba(232, 176, 96, 0.55),
     0 14px 0 rgba(20, 16, 19, 0.5),
     0 24px 48px rgba(0, 0, 0, 0.35);
 }
 
+.px-shelf.is-unit-selected .shelf-frame {
+  box-shadow:
+    inset 0 0 0 3px rgba(195, 127, 70, 0.3),
+    0 0 0 2px rgba(232, 176, 96, 0.95),
+    0 14px 0 rgba(20, 16, 19, 0.5),
+    0 24px 48px rgba(0, 0, 0, 0.35);
+}
+
+.unit-chrome {
+  position: absolute;
+  inset: -2px;
+  z-index: 40;
+  transform: translateZ(calc(var(--shelf-d) + 48px));
+  transform-style: flat;
+  pointer-events: none;
+}
+
+.unit-select-box {
+  position: absolute;
+  inset: 0;
+  border: 2px solid #e8b060;
+  box-shadow: 0 0 0 1px rgba(40, 24, 22, 0.65);
+  pointer-events: none;
+}
+
 .unit-handle {
   position: absolute;
-  z-index: 20;
+  z-index: 41;
+  pointer-events: auto;
+  touch-action: none;
   background: transparent;
 }
 
 .unit-handle-n,
 .unit-handle-s {
-  left: 12%;
-  right: 12%;
-  height: 14px;
+  left: 18px;
+  right: 18px;
+  height: 16px;
   cursor: ns-resize;
 }
 
-.unit-handle-n { top: -7px; }
-.unit-handle-s { bottom: -7px; }
+.unit-handle-n { top: -8px; }
+.unit-handle-s { bottom: -8px; }
 
 .unit-handle-e,
 .unit-handle-w {
-  top: 12%;
-  bottom: 12%;
-  width: 14px;
+  top: 18px;
+  bottom: 18px;
+  width: 16px;
   cursor: ew-resize;
 }
 
-.unit-handle-e { right: -7px; }
-.unit-handle-w { left: -7px; }
+.unit-handle-e { right: -8px; }
+.unit-handle-w { left: -8px; }
 
 .unit-handle-ne,
 .unit-handle-nw,
 .unit-handle-se,
 .unit-handle-sw {
-  width: 16px;
-  height: 16px;
+  width: 18px;
+  height: 18px;
   background: #e8b060;
   border: 2px solid #3a2420;
   box-shadow: 0 1px 0 rgba(0, 0, 0, 0.35);
 }
 
-.unit-handle-ne { top: -8px; right: -8px; cursor: nesw-resize; }
-.unit-handle-nw { top: -8px; left: -8px; cursor: nwse-resize; }
-.unit-handle-se { bottom: -8px; right: -8px; cursor: nwse-resize; }
-.unit-handle-sw { bottom: -8px; left: -8px; cursor: nesw-resize; }
+.unit-handle-ne { top: -9px; right: -9px; cursor: nesw-resize; }
+.unit-handle-nw { top: -9px; left: -9px; cursor: nwse-resize; }
+.unit-handle-se { bottom: -9px; right: -9px; cursor: nwse-resize; }
+.unit-handle-sw { bottom: -9px; left: -9px; cursor: nesw-resize; }
 
 .shelf-frame {
   position: absolute;
@@ -229,6 +257,7 @@ button {
     inset 0 0 0 3px rgba(195, 127, 70, 0.3),
     0 14px 0 rgba(20, 16, 19, 0.5),
     0 24px 48px rgba(0, 0, 0, 0.35);
+  cursor: var(--cursor-active);
 }
 
 .shelf-box {
@@ -354,6 +383,13 @@ button {
   cursor: var(--cursor-active);
 }
 
+.is-editing .shelf-left,
+.is-editing .shelf-right,
+.is-editing .shelf-top,
+.is-editing .shelf-bottom {
+  pointer-events: none;
+}
+
 .shelf-row {
   position: absolute;
   left: 0;
@@ -364,6 +400,14 @@ button {
   min-height: 48px;
   overflow: visible;
   z-index: 1;
+  cursor: var(--cursor-active);
+}
+
+.shelf-row.is-selected {
+  z-index: 5;
+  outline: 2px solid rgba(232, 176, 96, 0.95);
+  outline-offset: -3px;
+  background: rgba(232, 176, 96, 0.08);
 }
 
 .shelf-row.is-selected .shelf-plank {
@@ -468,7 +512,8 @@ button {
 
 .shelf-crate.is-selected {
   outline: 2px solid #e8b060;
-  outline-offset: 1px;
+  outline-offset: 2px;
+  z-index: 6;
 }
 
 .scene-book {

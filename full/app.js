@@ -176,18 +176,18 @@ function buildUnitDom(unit, unitIndex) {
   root.style.width = `${unit.w}%`;
   root.style.height = `${unit.h}%`;
   root.style.setProperty('--shelf-d', `${state.depth}px`);
-  if (selected.unitId === unit.id && !selected.shelfId && !selected.boxId) {
-    root.classList.add('is-unit-selected');
-  }
+  const unitActive = selected.unitId === unit.id;
+  if (unitActive && selected.type === 'unit') root.classList.add('is-unit-selected');
+  if (unitActive) root.classList.add('is-active-unit');
 
   root.innerHTML = `
-    <div class="shelf-frame">
+    <div class="shelf-frame" data-select-unit="${unit.id}">
       <div class="shelf-box">
         <div class="shelf-face shelf-back" data-cavity></div>
-        <div class="shelf-face shelf-left"></div>
-        <div class="shelf-face shelf-right"></div>
-        <div class="shelf-face shelf-top"></div>
-        <div class="shelf-face shelf-bottom"></div>
+        <div class="shelf-face shelf-left" aria-hidden="true"></div>
+        <div class="shelf-face shelf-right" aria-hidden="true"></div>
+        <div class="shelf-face shelf-top" aria-hidden="true"></div>
+        <div class="shelf-face shelf-bottom" aria-hidden="true"></div>
       </div>
     </div>
   `;
@@ -201,7 +201,13 @@ function buildUnitDom(unit, unitIndex) {
     row.dataset.unitId = unit.id;
     row.style.top = `${top}%`;
     row.style.height = `${height}%`;
-    if (selected.shelfId === shelf.id && selected.unitId === unit.id) row.classList.add('is-selected');
+    if (
+      selected.unitId === unit.id &&
+      selected.shelfId === shelf.id &&
+      selected.type === 'shelf'
+    ) {
+      row.classList.add('is-selected');
+    }
 
     const content = document.createElement('div');
     content.className = 'shelf-content';
@@ -216,7 +222,7 @@ function buildUnitDom(unit, unitIndex) {
       el.style.flex = `0 0 ${box.width * 100}%`;
       el.style.background = box.color;
       el.setAttribute('aria-label', 'Storage box');
-      if (selected.boxId === box.id) el.classList.add('is-selected');
+      if (selected.boxId === box.id && selected.type === 'box') el.classList.add('is-selected');
       content.appendChild(el);
     });
 
@@ -249,17 +255,49 @@ function buildUnitDom(unit, unitIndex) {
     cavity.appendChild(row);
   });
 
-  if (editing) {
+  if (editing && unitActive) {
+    const chrome = document.createElement('div');
+    chrome.className = 'unit-chrome';
+    chrome.dataset.unitId = unit.id;
+    const box = document.createElement('div');
+    box.className = 'unit-select-box';
+    chrome.appendChild(box);
     ['n', 's', 'e', 'w', 'ne', 'nw', 'se', 'sw'].forEach((edge) => {
       const h = document.createElement('div');
       h.className = `unit-handle unit-handle-${edge}`;
       h.dataset.edge = edge;
       h.dataset.unitId = unit.id;
-      root.appendChild(h);
+      h.title = 'Drag to resize';
+      chrome.appendChild(h);
     });
+    root.appendChild(chrome);
   }
 
   return root;
+}
+
+function unitEl(id) {
+  return unitLayer.querySelector(`.px-shelf[data-unit-id="${id}"]`);
+}
+
+function applyUnitGeometry(unit) {
+  const el = unitEl(unit.id);
+  if (!el) return;
+  el.style.left = `${unit.x}%`;
+  el.style.top = `${unit.y}%`;
+  el.style.width = `${unit.w}%`;
+  el.style.height = `${unit.h}%`;
+}
+
+function applyShelfHeights(unit) {
+  const el = unitEl(unit.id);
+  if (!el) return;
+  layoutMetrics(unit.shelves).forEach(({ shelf, top, height }) => {
+    const row = el.querySelector(`.shelf-row[data-shelf-id="${shelf.id}"]`);
+    if (!row) return;
+    row.style.top = `${top}%`;
+    row.style.height = `${height}%`;
+  });
 }
 
 function buildScene() {
@@ -286,17 +324,17 @@ function syncInspector() {
     weightOut.textContent = '—';
     booksOut.textContent = '—';
     editHint.textContent = editing
-      ? 'Select a bookshelf case or shelf. Drag case edges to resize. Use Unit arrows to add adjacent cases.'
+      ? 'Click a case, shelf, or box to select it. Drag the gold corners to resize the case.'
       : '';
     return;
   }
 
-  if (!shelf) {
+  if (selected.type === 'unit' || !shelf) {
     weightInput.value = '1';
     booksInput.value = '40';
     weightOut.textContent = '—';
     booksOut.textContent = '—';
-    editHint.textContent = `Case selected. Drag edges to resize. Delete removes this case (${state.units.length} total).`;
+    editHint.textContent = `Case selected. Drag corners/edges to resize. Delete removes this case (${state.units.length} total).`;
     return;
   }
 
@@ -305,7 +343,7 @@ function syncInspector() {
   weightOut.textContent = shelf.weight.toFixed(2);
   booksOut.textContent = String(shelf.books);
 
-  if (selected.boxId) {
+  if (selected.type === 'box') {
     editHint.textContent = 'Box selected. Delete removes the box.';
   } else {
     editHint.textContent = 'Shelf selected. Adjust height/books, or Delete to remove the shelf.';
@@ -335,6 +373,11 @@ function select(unitId, shelfId = null, boxId = null) {
     shelfId,
     boxId,
   };
+  // Rebuilding mid-drag destroys handles and drops pointer capture.
+  if (drag) {
+    syncInspector();
+    return;
+  }
   buildScene();
 }
 
@@ -547,13 +590,15 @@ unitLayer.addEventListener('pointerdown', (e) => {
       type: 'resize',
       edge: unitHandle.dataset.edge,
       unitId: unit.id,
+      pointerId: e.pointerId,
       startX: e.clientX,
       startY: e.clientY,
       wallW: wall.width || 1,
       wallH: wall.height || 1,
       orig: { x: unit.x, y: unit.y, w: unit.w, h: unit.h },
     };
-    select(unit.id);
+    selected = { type: 'unit', unitId: unit.id, shelfId: null, boxId: null };
+    syncInspector();
     unitHandle.setPointerCapture?.(e.pointerId);
     return;
   }
@@ -570,11 +615,18 @@ unitLayer.addEventListener('pointerdown', (e) => {
       type: 'divider',
       unitId: unit.id,
       index,
+      pointerId: e.pointerId,
       startY: e.clientY,
       startA: unit.shelves[index].weight,
       startB: unit.shelves[index + 1].weight,
     };
-    select(unit.id, handle.dataset.shelfId);
+    selected = {
+      type: 'shelf',
+      unitId: unit.id,
+      shelfId: handle.dataset.shelfId,
+      boxId: null,
+    };
+    syncInspector();
     handle.setPointerCapture?.(e.pointerId);
     return;
   }
@@ -582,6 +634,7 @@ unitLayer.addEventListener('pointerdown', (e) => {
   const box = e.target.closest('.shelf-crate');
   if (box) {
     e.preventDefault();
+    e.stopPropagation();
     select(box.dataset.unitId, box.dataset.shelfId, box.dataset.boxId);
     return;
   }
@@ -589,7 +642,15 @@ unitLayer.addEventListener('pointerdown', (e) => {
   const row = e.target.closest('.shelf-row');
   if (row) {
     e.preventDefault();
+    e.stopPropagation();
     select(row.dataset.unitId, row.dataset.shelfId);
+    return;
+  }
+
+  const frame = e.target.closest('[data-select-unit]');
+  if (frame) {
+    e.preventDefault();
+    select(frame.dataset.selectUnit);
     return;
   }
 
@@ -606,13 +667,13 @@ window.addEventListener('pointermove', (e) => {
   if (drag.type === 'divider') {
     const unit = findUnit(drag.unitId);
     if (!unit) return;
-    const cavity = unitLayer.querySelector(`.px-shelf[data-unit-id="${unit.id}"] [data-cavity]`);
+    const cavity = unitEl(unit.id)?.querySelector('[data-cavity]');
     const cavityH = cavity?.getBoundingClientRect().height || 1;
     const dy = e.clientY - drag.startY;
     const delta = (dy / cavityH) * totalWeight(unit.shelves) * 1.4;
     unit.shelves[drag.index].weight = Math.max(0.4, drag.startA + delta);
     unit.shelves[drag.index + 1].weight = Math.max(0.4, drag.startB - delta);
-    buildScene();
+    applyShelfHeights(unit);
     return;
   }
 
@@ -641,14 +702,17 @@ window.addEventListener('pointermove', (e) => {
     unit.w = w;
     unit.h = h;
     clampUnit(unit);
-    buildScene();
+    applyUnitGeometry(unit);
   }
 });
 
-window.addEventListener('pointerup', () => {
+window.addEventListener('pointerup', (e) => {
   if (!drag) return;
+  const ended = drag;
   drag = null;
   saveState();
+  // Refresh chrome/selection after geometry drag finishes.
+  if (ended.type === 'resize' || ended.type === 'divider') buildScene();
 });
 
 btnEdit.addEventListener('click', () => setEditing(!editing));
