@@ -537,7 +537,7 @@ function buildUnitDom(unit, unitIndex) {
     const pick = document.createElement('div');
     pick.className = 'unit-pick';
     pick.dataset.unitId = unit.id;
-    pick.title = 'Click to select · drag shelf to resize height';
+    pick.title = 'Click to select · drag the wood plank to resize height';
     root.appendChild(pick);
   }
 
@@ -678,7 +678,7 @@ function syncInspector() {
   if (selected.type === 'unit') {
     weightOut.textContent = '—';
     booksOut.textContent = '—';
-    editHint.textContent = `Case selected (${state.units.length} total). Drag shelves to change heights. Click another case’s frame to switch.`;
+    editHint.textContent = `Case selected (${state.units.length} total). Drag the top bar to move. Click a shelf to select it; drag the wood plank to change height.`;
     return;
   }
 
@@ -697,7 +697,7 @@ function syncInspector() {
   if (selected.type === 'box') {
     editHint.textContent = 'Box selected. Press Delete to remove it.';
   } else {
-    editHint.textContent = `Shelf selected (${unit.shelves.length} in case). Drag it up/down to change height.`;
+    editHint.textContent = `Shelf selected (${unit.shelves.length} in case). Drag the wood plank to change height.`;
   }
 }
 
@@ -1064,6 +1064,29 @@ function isFrameEdgeClick(pickEl, clientX, clientY) {
   return x <= edge || y <= edge || x >= rect.width - edge || y >= rect.height - edge;
 }
 
+/** True when the pointer is on the wood plank band of a shelf (not the books). */
+function isPlankClick(unit, clientY, pickEl) {
+  const rect = pickEl.getBoundingClientRect();
+  if (rect.height <= 0) return false;
+  const y = (clientY - rect.top) / rect.height;
+  const plankPx = 16;
+  const metrics = layoutMetrics(unit.shelves);
+  for (const m of metrics) {
+    const top = m.top / 100;
+    const bottom = (m.top + m.height) / 100;
+    if (y < top || y >= bottom) continue;
+    const band = Math.max(plankPx / rect.height, (m.height / 100) * 0.18);
+    return y >= bottom - band;
+  }
+  return false;
+}
+
+function applyLiveCollision(unit) {
+  clampUnitBounds(unit);
+  separateFromOthers(unit);
+  clampUnitBounds(unit);
+}
+
 function startShelfHeightDrag(unit, shelfId, e) {
   const index = unit.shelves.findIndex((s) => s.id === shelfId);
   if (index < 0) return false;
@@ -1097,7 +1120,7 @@ function applyShelfDrag(e) {
   if (!unit) return;
   const dy = e.clientY - drag.startY;
   if (!drag.armed) {
-    if (Math.abs(dy) < 5) return;
+    if (Math.abs(dy) < 4) return;
     drag.armed = true;
     if (drag.index < unit.shelves.length - 1) {
       drag.pair = drag.index + 1;
@@ -1155,9 +1178,16 @@ unitLayer.addEventListener('pointerdown', (e) => {
       select(unit.id);
       return;
     }
-    if (startShelfHeightDrag(unit, shelf.id, e)) {
-      pick.setPointerCapture?.(e.pointerId);
+
+    // Height drag only from the wood plank; click anywhere else just selects.
+    if (isPlankClick(unit, e.clientY, pick)) {
+      if (startShelfHeightDrag(unit, shelf.id, e)) {
+        pick.setPointerCapture?.(e.pointerId);
+      }
+      return;
     }
+
+    select(unit.id, shelf.id);
     return;
   }
 
@@ -1166,6 +1196,15 @@ unitLayer.addEventListener('pointerdown', (e) => {
     e.preventDefault();
     select(caseEl.dataset.unitId);
   }
+});
+
+unitLayer.addEventListener('pointermove', (e) => {
+  if (!editing || drag) return;
+  const pick = e.target.closest('.unit-pick');
+  if (!pick) return;
+  const unit = findUnit(pick.dataset.unitId);
+  if (!unit) return;
+  pick.style.cursor = isPlankClick(unit, e.clientY, pick) ? 'ns-resize' : 'var(--cursor-active)';
 });
 
 window.addEventListener('pointermove', (e) => {
@@ -1185,7 +1224,7 @@ window.addEventListener('pointermove', (e) => {
     unit.y = drag.orig.y + dy;
     unit.w = drag.orig.w;
     unit.h = drag.orig.h;
-    clampUnitBounds(unit);
+    applyLiveCollision(unit);
     applyUnitGeometry(unit);
     return;
   }
@@ -1214,7 +1253,7 @@ window.addEventListener('pointermove', (e) => {
     unit.y = y;
     unit.w = w;
     unit.h = h;
-    clampUnitBounds(unit);
+    applyLiveCollision(unit);
     applyUnitGeometry(unit);
   }
 });
@@ -1232,17 +1271,11 @@ window.addEventListener('pointerup', () => {
   }
 
   if (unit && (ended.type === 'move' || ended.type === 'resize')) {
+    // Soft snap only — collision already resolved live while dragging.
     finalizeUnitLayout(unit, {
       snap: true,
       edge: ended.type === 'resize' ? ended.edge : null,
     });
-    if (overlapsAny(unit, GAP * 0.25, unit.id)) {
-      unit.x = ended.orig.x;
-      unit.y = ended.orig.y;
-      unit.w = ended.orig.w;
-      unit.h = ended.orig.h;
-      clampUnitBounds(unit);
-    }
     applyUnitGeometry(unit);
   }
   saveState();
