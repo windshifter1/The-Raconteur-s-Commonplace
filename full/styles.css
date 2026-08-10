@@ -495,6 +495,53 @@ button {
     inset 0 -2px 0 rgba(40, 24, 22, 0.45);
 }
 
+.is-editing .shelf-plank.is-draggable,
+.is-editing .shelf-row {
+  cursor: ns-resize;
+}
+
+.is-editing .shelf-row.is-selected {
+  cursor: ns-resize;
+}
+
+.case-hit {
+  position: absolute;
+  z-index: 12;
+  pointer-events: auto;
+  touch-action: none;
+  background: transparent;
+}
+
+.case-hit-n,
+.case-hit-s {
+  left: 0;
+  right: 0;
+  height: 18px;
+  cursor: var(--cursor-active);
+}
+
+.case-hit-n { top: -2px; }
+.case-hit-s { bottom: -2px; }
+
+.case-hit-e,
+.case-hit-w {
+  top: 16px;
+  bottom: 16px;
+  width: 18px;
+  cursor: var(--cursor-active);
+}
+
+.case-hit-e { right: -2px; }
+.case-hit-w { left: -2px; }
+
+.is-editing .px-shelf {
+  z-index: 1;
+}
+
+.is-editing .px-shelf.is-active-unit {
+  z-index: 2;
+}
+
 .shelf-handle {
   position: absolute;
   left: 8%;
@@ -506,6 +553,7 @@ button {
   border-radius: 2px;
 }
 
+.shelf-row.is-selected .shelf-handle::after,
 .shelf-handle::after {
   position: absolute;
   left: 50%;
