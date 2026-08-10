@@ -1178,8 +1178,23 @@ function select(unitId, shelfId = null, boxId = null) {
     shelfId,
     boxId,
   };
+  // Keep inspector live during drags, but always rebuild when the target changes
+  // so case/shelf chrome cannot get stuck on a previous import selection.
   if (drag) {
     syncInspector();
+    buildOverlayChrome();
+    unitLayer.querySelectorAll('.px-shelf').forEach((el) => {
+      el.classList.toggle('is-active-unit', el.dataset.unitId === unitId);
+      el.classList.toggle('is-unit-selected', el.dataset.unitId === unitId && selected.type === 'unit');
+    });
+    unitLayer.querySelectorAll('.shelf-row').forEach((row) => {
+      row.classList.toggle(
+        'is-selected',
+        selected.type === 'shelf' &&
+          row.dataset.unitId === unitId &&
+          row.dataset.shelfId === shelfId,
+      );
+    });
     return;
   }
   buildScene();
@@ -1368,12 +1383,25 @@ function importState(file) {
   const reader = new FileReader();
   reader.onload = () => {
     try {
+      drag = null;
       const parsed = migrate(JSON.parse(String(reader.result)));
       resolveAllOverlaps(parsed.units);
       state = parsed;
       saveState();
-      selected = { type: 'unit', unitId: state.units[0]?.id || null, shelfId: null, boxId: null };
-      buildScene();
+      selected = {
+        type: 'unit',
+        unitId: state.units[0]?.id || null,
+        shelfId: null,
+        boxId: null,
+      };
+      // File picker / parallax can leave the camera rotated so 3D pick planes miss hits.
+      target.x = 0;
+      target.y = 0;
+      current.x = 0;
+      current.y = 0;
+      apply();
+      if (!editing) setEditing(true);
+      else buildScene();
     } catch {
       editHint.textContent = 'Could not read that settings file.';
     }
@@ -1504,8 +1532,10 @@ function startMoveDrag(unit, e) {
   syncInspector();
 }
 
-function isFrameEdgeClick(pickEl, clientX, clientY) {
-  const rect = pickEl.getBoundingClientRect();
+function isFrameEdgeClick(el, clientX, clientY) {
+  if (!el) return false;
+  const rect = el.getBoundingClientRect();
+  if (rect.width <= 0 || rect.height <= 0) return false;
   const edge = 18;
   const x = clientX - rect.left;
   const y = clientY - rect.top;
@@ -1514,11 +1544,21 @@ function isFrameEdgeClick(pickEl, clientX, clientY) {
 
 /**
  * Hit-test which case owns a screen point.
- * 3D-projected AABBs of adjacent cases often overlap — prefer the frame
- * whose center is nearest among frames that contain the point.
+ * Prefer the live paint/hit stack (accurate for 3D). Fall back to smallest
+ * containing frame AABB when the stack misses the shelves entirely.
  */
 function unitAtPoint(clientX, clientY) {
+  const stack = document.elementsFromPoint(clientX, clientY);
+  for (const node of stack) {
+    const shelf = node.closest?.('.px-shelf');
+    if (shelf?.dataset.unitId) {
+      const unit = findUnit(shelf.dataset.unitId);
+      if (unit) return unit;
+    }
+  }
+
   let best = null;
+  let bestArea = Infinity;
   let bestDist = Infinity;
   for (const el of unitLayer.querySelectorAll('.px-shelf')) {
     const frame = el.querySelector('.shelf-frame') || el;
@@ -1531,10 +1571,12 @@ function unitAtPoint(clientX, clientY) {
     ) {
       continue;
     }
+    const area = Math.max(1, r.width * r.height);
     const cx = (r.left + r.right) / 2;
     const cy = (r.top + r.bottom) / 2;
     const dist = Math.hypot(clientX - cx, clientY - cy);
-    if (dist < bestDist) {
+    if (area < bestArea - 1 || (Math.abs(area - bestArea) <= 1 && dist < bestDist)) {
+      bestArea = area;
       bestDist = dist;
       best = findUnit(el.dataset.unitId);
     }
@@ -1730,64 +1772,77 @@ editOverlay.addEventListener('pointerdown', (e) => {
   (handle || move).setPointerCapture?.(e.pointerId);
 });
 
-unitLayer.addEventListener('pointerdown', (e) => {
+/** UI chrome that should not start scene picking. */
+function isEditChromeTarget(target) {
+  return !!target?.closest?.(
+    '.edit-panel, .quiet-tools, .search-dock, .wordmark, .unit-handle, .unit-move-bar, button, input, textarea, a, label, select',
+  );
+}
+
+/**
+ * Screen-space picking on the stage. After import, 3D `.unit-pick` planes often
+ * miss hit-testing (clicks land on `.room-3d`), so resolve cases via geometry.
+ */
+function handleEditScenePointerDown(e) {
   if (!editing) return;
+  // A stuck drag (common after the OS file dialog) blocks all picking.
+  if (drag && e.type === 'pointerdown' && !e.target.closest?.('.unit-handle, .unit-move-bar')) {
+    drag = null;
+  }
+  if (drag) return;
+  if (isEditChromeTarget(e.target)) return;
+  if (e.pointerType === 'mouse' && e.button !== 0) return;
 
-  const pick = e.target.closest('.unit-pick');
-  if (pick) {
-    // Disambiguate overlapping 3D AABBs before trusting the event target.
-    const unit = unitAtPoint(e.clientX, e.clientY) || findUnit(pick.dataset.unitId);
-    if (!unit) return;
-    e.preventDefault();
-    e.stopPropagation();
+  const unit = unitAtPoint(e.clientX, e.clientY);
+  if (!unit) return;
 
-    const pickEl = unitEl(unit.id)?.querySelector('.unit-pick') || pick;
+  e.preventDefault();
 
-    if (isFrameEdgeClick(pickEl, e.clientX, e.clientY)) {
-      select(unit.id);
-      return;
-    }
-
-    const boxHit = boxAtPoint(unit.id, e.clientX, e.clientY);
-    if (boxHit?.shelfId && boxHit?.boxId) {
-      select(unit.id, boxHit.shelfId, boxHit.boxId);
-      return;
-    }
-
-    // Shelf select + height drag only when the cursor is on the wood plank.
-    const hit = woodPlankAtPoint(unit.id, e.clientX, e.clientY);
-    if (hit) {
-      if (startShelfHeightDrag(unit, hit.shelfId, e)) {
-        pickEl.setPointerCapture?.(e.pointerId);
-      } else {
-        // Floor plank / single-shelf — still select the shelf.
-        select(unit.id, hit.shelfId);
-      }
-      return;
-    }
-
+  const root = unitEl(unit.id);
+  const pickEl = root?.querySelector('.unit-pick');
+  const frameEl = root?.querySelector('.shelf-frame') || root;
+  // Prefer frame face — pick-plane AABBs inflate under perspective.
+  if (frameEl && isFrameEdgeClick(frameEl, e.clientX, e.clientY)) {
     select(unit.id);
     return;
   }
 
-  const caseEl = e.target.closest('.px-shelf');
-  if (caseEl) {
-    e.preventDefault();
-    const unit = unitAtPoint(e.clientX, e.clientY) || findUnit(caseEl.dataset.unitId);
-    if (unit) select(unit.id);
+  const boxHit = boxAtPoint(unit.id, e.clientX, e.clientY);
+  if (boxHit?.shelfId && boxHit?.boxId) {
+    select(unit.id, boxHit.shelfId, boxHit.boxId);
+    return;
   }
-});
 
-unitLayer.addEventListener('pointermove', (e) => {
+  const hit = woodPlankAtPoint(unit.id, e.clientX, e.clientY);
+  if (hit) {
+    if (startShelfHeightDrag(unit, hit.shelfId, e)) {
+      (pickEl || stage).setPointerCapture?.(e.pointerId);
+    } else {
+      select(unit.id, hit.shelfId);
+    }
+    return;
+  }
+
+  select(unit.id);
+}
+
+stage.addEventListener('pointerdown', handleEditScenePointerDown);
+
+stage.addEventListener('pointermove', (e) => {
   if (!editing || drag) return;
-  const pick = e.target.closest('.unit-pick');
-  if (!pick) return;
-  const unit = unitAtPoint(e.clientX, e.clientY) || findUnit(pick.dataset.unitId);
-  if (!unit) return;
+  if (isEditChromeTarget(e.target)) {
+    stage.style.cursor = '';
+    return;
+  }
+  const unit = unitAtPoint(e.clientX, e.clientY);
+  if (!unit) {
+    stage.style.cursor = '';
+    return;
+  }
   const hit = woodPlankAtPoint(unit.id, e.clientX, e.clientY);
   const idx = hit ? unit.shelves.findIndex((s) => s.id === hit.shelfId) : -1;
   const canDragHeight = idx >= 0 && idx < unit.shelves.length - 1;
-  pick.style.cursor = canDragHeight ? 'ns-resize' : 'var(--cursor-active)';
+  stage.style.cursor = canDragHeight ? 'ns-resize' : 'var(--cursor-active)';
 });
 
 window.addEventListener('pointermove', (e) => {
@@ -1902,8 +1957,10 @@ editPanel.addEventListener('click', (e) => {
   else if (act === 'add-above') addAdjacent('above');
   else if (act === 'add-below') addAdjacent('below');
   else if (act === 'export') exportState();
-  else if (act === 'import') fileIn.click();
-  else if (act === 'reset') {
+  else if (act === 'import') {
+    drag = null;
+    fileIn.click();
+  } else if (act === 'reset') {
     state = defaultState();
     selected = { type: 'unit', unitId: state.units[0].id, shelfId: null, boxId: null };
     saveState();
