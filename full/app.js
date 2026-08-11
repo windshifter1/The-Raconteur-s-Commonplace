@@ -4,7 +4,6 @@
  */
 
 import bakedLibrary from './library.js';
-import { bindSearchUi } from './search.js';
 
 const VIEW_ONLY = true;
 const STORAGE_KEY = 'trc-full-library-v2';
@@ -177,6 +176,8 @@ let drag = null;
 let pan = { x: 0, y: 0 };
 let panDrag = null;
 let overlayRaf = 0;
+/** Emergency 1:1 zoom when fit-scale leaves cases off-screen after reload. */
+let forceZoom1 = false;
 
 async function boot() {
   try {
@@ -188,44 +189,57 @@ async function boot() {
   } catch {}
 
   sanitizeState(state);
-  // Drop any leftover inline camera box from older builds.
-  if (sceneCamera) {
-    sceneCamera.style.width = '';
-    sceneCamera.style.height = '';
-    sceneCamera.style.left = '';
-    sceneCamera.style.top = '';
-    sceneCamera.style.right = '';
-    sceneCamera.style.bottom = '';
-    sceneCamera.style.inset = '';
-  }
-  centerView();
-  buildScene();
-  // Mobile often lays out after the first paint — refit once the stage has size.
+  relayout();
   requestAnimationFrame(() => {
-    centerView();
-    syncPlacementPlane();
-    buildScene();
-    requestAnimationFrame(() => {
-      centerView();
-      syncPlacementPlane();
-      buildScene();
-    });
+    relayout();
+    ensureSceneVisible(0);
   });
+  // Search is optional — never block the bookshelf if config.js is missing.
+  import('./search.js')
+    .then((m) => m.bindSearchUi?.())
+    .catch(() => {});
   if (reduceMotion) apply();
 }
 
+/** Clear any leftover inline camera box from older builds / bfcache. */
+function resetCameraBox() {
+  if (!sceneCamera) return;
+  sceneCamera.classList.remove('is-sized');
+  sceneCamera.style.width = '';
+  sceneCamera.style.height = '';
+  sceneCamera.style.left = '';
+  sceneCamera.style.top = '';
+  sceneCamera.style.right = '';
+  sceneCamera.style.bottom = '';
+  sceneCamera.style.inset = '';
+}
+
+function relayout() {
+  forceZoom1 = false;
+  resetCameraBox();
+  centerView();
+  syncPlacementPlane();
+  buildScene();
+}
+
 /**
- * Clamp pan against the CSS-sized camera. Positioning is CSS-centered
- * (left/top 50% + translate -50%); JS only owns --pan-x / --pan-y.
+ * Camera stays viewport-sized (CSS inset). Desktop scale on small screens is
+ * --zoom (not a 1280px DOM box — that goes blank on mobile WebKit reload).
  */
 function syncCameraFrame() {
-  if (!stage || !sceneCamera || !world) return;
+  if (!stage || !sceneCamera || !world) return false;
   const sw = stage.clientWidth;
   const sh = stage.clientHeight;
-  if (sw < 2 || sh < 2) return false;
-  const camW = sceneCamera.offsetWidth || Math.max(sw * CAMERA_BLEED_X, SCENE_MIN_W);
-  const camH = sceneCamera.offsetHeight || Math.max(sh * CAMERA_BLEED_Y, SCENE_MIN_H);
-  clampPan(sw, sh, camW, camH);
+  if (sw < 8 || sh < 8) {
+    resetCameraBox();
+    return false;
+  }
+  resetCameraBox();
+  const fit = forceZoom1 ? 1 : Math.max(1, SCENE_MIN_W / sw, SCENE_MIN_H / sh);
+  world.style.setProperty('--zoom', String(fit));
+  const camW = sw * CAMERA_BLEED_X;
+  const camH = sh * CAMERA_BLEED_Y;
+  clampPan(sw, sh, camW * fit, camH * fit);
   applyPan();
   return true;
 }
@@ -251,30 +265,74 @@ function centerView() {
 }
 
 /**
- * Fit the unit placement plane inside the back wall at a fixed aspect ratio.
- * Sized/centered in layout % (no CSS translate) so case positions stay stable.
+ * Size the placement plane in CSS pixels from the stage — never from
+ * wall.clientWidth (3D-transformed ancestors often report 0 after mobile reload).
  */
 function syncPlacementPlane() {
-  syncCameraFrame();
-  if (!wall || !unitLayer) return;
-  const wallW = wall.clientWidth || 1;
-  const wallH = wall.clientHeight || 1;
-  let planeW = wallW;
-  let planeH = wallH;
-  if (wallW / wallH > PLANE_ASPECT) {
-    planeW = wallH * PLANE_ASPECT;
-  } else {
-    planeH = wallW / PLANE_ASPECT;
-  }
+  if (!syncCameraFrame()) return false;
+  if (!unitLayer || !stage) return false;
+  const sw = stage.clientWidth;
+  const sh = stage.clientHeight;
+  if (sw < 8 || sh < 8) return false;
+
+  let planeW = sw;
+  let planeH = sh;
+  if (sw / sh > PLANE_ASPECT) planeW = sh * PLANE_ASPECT;
+  else planeH = sw / PLANE_ASPECT;
   planeW *= PLANE_FIT;
   planeH *= PLANE_FIT;
-  unitLayer.style.width = `${(planeW / wallW) * 100}%`;
-  unitLayer.style.height = `${(planeH / wallH) * 100}%`;
-  unitLayer.style.left = `${((wallW - planeW) / 2 / wallW) * 100}%`;
-  unitLayer.style.top = `${((wallH - planeH) / 2 / wallH) * 100}%`;
+
+  unitLayer.style.width = `${Math.round(planeW)}px`;
+  unitLayer.style.height = `${Math.round(planeH)}px`;
+  unitLayer.style.left = '50%';
+  unitLayer.style.top = '50%';
   unitLayer.style.right = 'auto';
   unitLayer.style.bottom = 'auto';
-  unitLayer.style.transform = 'none';
+  unitLayer.style.transform = 'translate(-50%, -50%)';
+  return true;
+}
+
+function unitsOnScreen() {
+  if (!stage || !unitLayer) return false;
+  const shelves = unitLayer.querySelectorAll('.px-shelf');
+  if (!shelves.length) return false;
+  const vr = stage.getBoundingClientRect();
+  for (const el of shelves) {
+    const r = el.getBoundingClientRect();
+    if (r.width < 4 || r.height < 4) continue;
+    if (r.right > vr.left + 2 && r.left < vr.right - 2 && r.bottom > vr.top + 2 && r.top < vr.bottom - 2) {
+      return true;
+    }
+  }
+  return false;
+}
+
+/** Retry until cases have a real on-screen box (mobile reload / late layout). */
+function ensureSceneVisible(attempt = 0) {
+  syncPlacementPlane();
+  buildScene();
+  void unitLayer?.offsetWidth;
+  void sceneCamera?.offsetWidth;
+
+  if (unitsOnScreen()) {
+    if (attempt === 0) {
+      setTimeout(() => ensureSceneVisible(1), 180);
+    }
+    return;
+  }
+
+  // If fit-zoom left everything off-screen, fall back to 1:1 then retry.
+  if (attempt === 3) {
+    forceZoom1 = true;
+    centerView();
+  }
+
+  if (attempt >= 25) return;
+  setTimeout(() => {
+    resetCameraBox();
+    centerView();
+    ensureSceneVisible(attempt + 1);
+  }, 60 + attempt * 40);
 }
 
 /** Layout box of the placement plane (not the 3D-projected AABB). */
@@ -1539,9 +1597,8 @@ function movePanDrag(e) {
   pan.y = panDrag.origY + (e.clientY - panDrag.startY);
   const sw = stage?.clientWidth || window.innerWidth || SCENE_MIN_W;
   const sh = stage?.clientHeight || window.innerHeight || SCENE_MIN_H;
-  const camW = sceneCamera?.offsetWidth || Math.max(sw * CAMERA_BLEED_X, SCENE_MIN_W);
-  const camH = sceneCamera?.offsetHeight || Math.max(sh * CAMERA_BLEED_Y, SCENE_MIN_H);
-  clampPan(sw, sh, camW, camH);
+  const fit = Math.max(1, SCENE_MIN_W / sw, SCENE_MIN_H / sh);
+  clampPan(sw, sh, sw * CAMERA_BLEED_X * fit, sh * CAMERA_BLEED_Y * fit);
   applyPan();
   scheduleOverlaySync();
 }
@@ -1590,30 +1647,34 @@ if (stage) {
 }
 
 window.addEventListener('resize', () => {
-  syncPlacementPlane();
-  buildScene();
+  relayout();
 });
 
 window.addEventListener('pageshow', () => {
-  centerView();
-  syncPlacementPlane();
-  buildScene();
+  relayout();
+  ensureSceneVisible(0);
+});
+
+window.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'visible') {
+    relayout();
+    ensureSceneVisible(0);
+  }
 });
 
 if (stage && typeof ResizeObserver !== 'undefined') {
   let lastSize = '';
   new ResizeObserver(() => {
     const key = `${stage.clientWidth}x${stage.clientHeight}`;
-    if (key === lastSize || stage.clientWidth < 2) return;
+    if (key === lastSize || stage.clientWidth < 8) return;
     const first = !lastSize;
     lastSize = key;
     if (first) centerView();
     syncPlacementPlane();
-    if (first) buildScene();
-    else scheduleOverlaySync();
+    buildScene();
+    if (!unitsOnScreen()) ensureSceneVisible(0);
   }).observe(stage);
 }
 
 /* Edit interaction listeners omitted — VIEW_ONLY bookshelf viewer. */
-bindSearchUi();
 boot();

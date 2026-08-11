@@ -32,6 +32,8 @@ const SCENE_MIN_H = 720;
 /** Extra bleed so the room still fills the frame on large screens (old ~inset). */
 const CAMERA_BLEED_X = 1.2;
 const CAMERA_BLEED_Y = 1.12;
+const ZOOM_MIN = 0.75;
+const ZOOM_MAX = 1.45;
 
 const world = document.getElementById('world');
 const stage = document.getElementById('stage');
@@ -47,6 +49,8 @@ const booksInput = document.getElementById('shelf-books');
 const booksOut = document.getElementById('shelf-books-out');
 const depthInput = document.getElementById('case-depth');
 const depthOut = document.getElementById('case-depth-out');
+const zoomInput = document.getElementById('cam-zoom');
+const zoomOut = document.getElementById('cam-zoom-out');
 const edgesInput = document.getElementById('case-edges');
 const edgesOut = document.getElementById('case-edges-out');
 const countInput = document.getElementById('shelf-count');
@@ -86,6 +90,7 @@ function defaultState() {
     version: 2,
     depth: 80,
     edges: 16,
+    zoom: 1,
     units: [makeUnit((100 - w) / 2, 20, w, h, [
       { id: 'shelf-1', weight: 1, books: 46, boxes: [] },
       { id: 'shelf-2', weight: 1, books: 48, boxes: [] },
@@ -93,6 +98,11 @@ function defaultState() {
       { id: 'shelf-4', weight: 1, books: 44, boxes: [] },
     ])],
   };
+}
+
+function clampZoom(z) {
+  const n = Number(z);
+  return Math.min(ZOOM_MAX, Math.max(ZOOM_MIN, Number.isFinite(n) ? n : 1));
 }
 
 function normalizeShelf(s, i = 0) {
@@ -149,6 +159,7 @@ function migrate(parsed) {
       version: 2,
       depth: clampDepth(parsed.depth),
       edges: clampEdges(parsed.edges ?? 16),
+      zoom: clampZoom(parsed.zoom ?? 1),
       units: parsed.units.map(normalizeUnit),
     };
   }
@@ -157,6 +168,7 @@ function migrate(parsed) {
       version: 2,
       depth: clampDepth(parsed.depth),
       edges: clampEdges(parsed.edges ?? 16),
+      zoom: clampZoom(parsed.zoom ?? 1),
       units: [normalizeUnit({ id: 'unit-1', x: 29, y: 18, w: 42, h: 56, shelves: parsed.shelves }, 0)],
     };
   }
@@ -184,18 +196,45 @@ let pan = { x: 0, y: 0 };
 let panDrag = null;
 let overlayRaf = 0;
 
+/** Clear leftover inline camera box from older builds / bfcache. */
+function resetCameraBox() {
+  if (!sceneCamera) return;
+  sceneCamera.classList.remove('is-sized');
+  sceneCamera.style.width = '';
+  sceneCamera.style.height = '';
+  sceneCamera.style.left = '';
+  sceneCamera.style.top = '';
+  sceneCamera.style.right = '';
+  sceneCamera.style.bottom = '';
+  sceneCamera.style.inset = '';
+}
+
+function sceneFitScale(sw = stage?.clientWidth || SCENE_MIN_W, sh = stage?.clientHeight || SCENE_MIN_H) {
+  if (sw < 2 || sh < 2) return 1;
+  return Math.max(1, SCENE_MIN_W / sw, SCENE_MIN_H / sh);
+}
+
 /**
- * Clamp pan against the CSS-sized camera. Positioning is CSS-centered
- * (left/top 50% + translate -50%); JS only owns --pan-x / --pan-y.
+ * Keep the camera viewport-sized (CSS inset) so mobile WebKit does not cull a
+ * giant off-screen 3D layer on reload. Desktop-or-larger scale is --zoom
+ * (fit × user zoom).
  */
 function syncCameraFrame() {
-  if (!stage || !sceneCamera || !world) return;
+  if (!stage || !sceneCamera || !world) return false;
   const sw = stage.clientWidth;
   const sh = stage.clientHeight;
-  if (sw < 2 || sh < 2) return false;
-  const camW = sceneCamera.offsetWidth || Math.max(sw * CAMERA_BLEED_X, SCENE_MIN_W);
-  const camH = sceneCamera.offsetHeight || Math.max(sh * CAMERA_BLEED_Y, SCENE_MIN_H);
-  clampPan(sw, sh, camW, camH);
+  if (sw < 2 || sh < 2) {
+    resetCameraBox();
+    return false;
+  }
+  resetCameraBox();
+  const fit = sceneFitScale(sw, sh);
+  const userZoom = clampZoom(state.zoom);
+  const z = fit * userZoom;
+  world.style.setProperty('--zoom', String(z));
+  const camW = sw * CAMERA_BLEED_X;
+  const camH = sh * CAMERA_BLEED_Y;
+  clampPan(sw, sh, camW * z, camH * z);
   applyPan();
   return true;
 }
@@ -214,6 +253,14 @@ function applyPan() {
   scheduleOverlaySync();
 }
 
+function applyZoom() {
+  if (!world) return;
+  state.zoom = clampZoom(state.zoom);
+  if (zoomInput) zoomInput.value = String(state.zoom);
+  if (zoomOut) zoomOut.textContent = state.zoom.toFixed(2);
+  syncCameraFrame();
+}
+
 /** Reset view to the geometric centre of the room/bookshelf. */
 function centerView() {
   pan.x = 0;
@@ -222,30 +269,53 @@ function centerView() {
 }
 
 /**
- * Fit the unit placement plane inside the back wall at a fixed aspect ratio.
- * Sized/centered in layout % (no CSS translate) so case positions stay stable.
+ * Size the placement plane in CSS pixels from the stage — never from
+ * wall.clientWidth (3D-transformed ancestors often report 0 after mobile reload).
  */
 function syncPlacementPlane() {
-  syncCameraFrame();
-  if (!wall || !unitLayer) return;
-  const wallW = wall.clientWidth || 1;
-  const wallH = wall.clientHeight || 1;
-  let planeW = wallW;
-  let planeH = wallH;
-  if (wallW / wallH > PLANE_ASPECT) {
-    planeW = wallH * PLANE_ASPECT;
-  } else {
-    planeH = wallW / PLANE_ASPECT;
-  }
+  const sized = syncCameraFrame();
+  if (!sized || !unitLayer || !stage) return false;
+  const sw = stage.clientWidth;
+  const sh = stage.clientHeight;
+  if (sw < 8 || sh < 8) return false;
+
+  let planeW = sw;
+  let planeH = sh;
+  if (sw / sh > PLANE_ASPECT) planeW = sh * PLANE_ASPECT;
+  else planeH = sw / PLANE_ASPECT;
   planeW *= PLANE_FIT;
   planeH *= PLANE_FIT;
-  unitLayer.style.width = `${(planeW / wallW) * 100}%`;
-  unitLayer.style.height = `${(planeH / wallH) * 100}%`;
-  unitLayer.style.left = `${((wallW - planeW) / 2 / wallW) * 100}%`;
-  unitLayer.style.top = `${((wallH - planeH) / 2 / wallH) * 100}%`;
+
+  unitLayer.style.width = `${Math.round(planeW)}px`;
+  unitLayer.style.height = `${Math.round(planeH)}px`;
+  unitLayer.style.left = '50%';
+  unitLayer.style.top = '50%';
   unitLayer.style.right = 'auto';
   unitLayer.style.bottom = 'auto';
-  unitLayer.style.transform = 'none';
+  unitLayer.style.transform = 'translate(-50%, -50%)';
+  return true;
+}
+
+/** Retry layout until the stage has real size (common on mobile first paint / reload). */
+function ensureSceneVisible(attempt = 0) {
+  const ok = syncPlacementPlane();
+  if (ok) {
+    if (attempt === 0) {
+      setTimeout(() => {
+        centerView();
+        syncPlacementPlane();
+        buildScene();
+      }, 160);
+    }
+    return;
+  }
+  if (attempt >= 20) return;
+  setTimeout(() => {
+    resetCameraBox();
+    centerView();
+    buildScene();
+    ensureSceneVisible(attempt + 1);
+  }, 50 + attempt * 40);
 }
 
 /** Layout box of the placement plane (not the 3D-projected AABB). */
@@ -262,7 +332,7 @@ function planeLayoutSize() {
 
 function sanitizeState(next = state) {
   if (!next?.units) return next;
-  delete next.zoom;
+  next.zoom = clampZoom(next.zoom ?? 1);
   next.depth = clampDepth(next.depth);
   next.edges = clampEdges(next.edges);
   next.units.forEach((unit) => {
@@ -1110,6 +1180,7 @@ function scheduleOverlaySync() {
 function buildScene() {
   syncPlacementPlane();
   sanitizeState(state);
+  applyZoom();
   unitLayer.innerHTML = '';
   depthInput.value = String(state.depth);
   depthOut.textContent = String(state.depth);
@@ -1526,9 +1597,10 @@ function movePanDrag(e) {
   pan.y = panDrag.origY + (e.clientY - panDrag.startY);
   const sw = stage.clientWidth || window.innerWidth || SCENE_MIN_W;
   const sh = stage.clientHeight || window.innerHeight || SCENE_MIN_H;
-  const camW = sceneCamera?.offsetWidth || Math.max(sw * CAMERA_BLEED_X, SCENE_MIN_W);
-  const camH = sceneCamera?.offsetHeight || Math.max(sh * CAMERA_BLEED_Y, SCENE_MIN_H);
-  clampPan(sw, sh, camW, camH);
+  const z = sceneFitScale(sw, sh) * clampZoom(state.zoom);
+  const camW = sw * CAMERA_BLEED_X;
+  const camH = sh * CAMERA_BLEED_Y;
+  clampPan(sw, sh, camW * z, camH * z);
   applyPan();
 }
 
@@ -1575,13 +1647,15 @@ stage.addEventListener('auxclick', (e) => {
 window.addEventListener('resize', () => {
   // Only refit the plane — never rewrite stored case x/y/w/h from projection.
   syncPlacementPlane();
-  scheduleOverlaySync();
+  buildScene();
 });
 
 window.addEventListener('pageshow', () => {
+  resetCameraBox();
   centerView();
   syncPlacementPlane();
   buildScene();
+  ensureSceneVisible();
 });
 
 if (stage && typeof ResizeObserver !== 'undefined') {
@@ -1593,8 +1667,7 @@ if (stage && typeof ResizeObserver !== 'undefined') {
     lastSize = key;
     if (first) centerView();
     syncPlacementPlane();
-    if (first) buildScene();
-    else scheduleOverlaySync();
+    buildScene();
   }).observe(stage);
 }
 
@@ -2144,6 +2217,15 @@ depthInput.addEventListener('input', () => {
 });
 depthInput.addEventListener('change', saveState);
 
+if (zoomInput) {
+  zoomInput.addEventListener('input', () => {
+    state.zoom = clampZoom(zoomInput.value);
+    applyZoom();
+    scheduleOverlaySync();
+  });
+  zoomInput.addEventListener('change', saveState);
+}
+
 edgesInput.addEventListener('input', () => {
   state.edges = clampEdges(edgesInput.value);
   edgesInput.value = String(state.edges);
@@ -2155,26 +2237,15 @@ edgesInput.addEventListener('input', () => {
 });
 edgesInput.addEventListener('change', saveState);
 
-// Drop any leftover inline camera box from older builds.
-if (sceneCamera) {
-  sceneCamera.style.width = '';
-  sceneCamera.style.height = '';
-  sceneCamera.style.left = '';
-  sceneCamera.style.top = '';
-  sceneCamera.style.right = '';
-  sceneCamera.style.bottom = '';
-  sceneCamera.style.inset = '';
-}
+// Drop leftover positioning from older builds.
+resetCameraBox();
+applyZoom();
 centerView();
 buildScene();
 requestAnimationFrame(() => {
   centerView();
   syncPlacementPlane();
   buildScene();
-  requestAnimationFrame(() => {
-    centerView();
-    syncPlacementPlane();
-    buildScene();
-  });
+  ensureSceneVisible();
 });
 if (reduceMotion) apply();
