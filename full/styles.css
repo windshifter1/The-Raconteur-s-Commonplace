@@ -94,15 +94,17 @@ button {
 
 .scene-camera {
   position: absolute;
-  /* Fill the viewport. Do not use a 1280px+ box — mobile WebKit culls it on reload. */
-  inset: -6% -10%;
+  /* Desktop-or-larger room so perspective matches PC; small screens pan instead of shrinking. */
+  left: 50%;
+  top: 50%;
+  width: max(120%, 1280px);
+  height: max(112%, 720px);
   transform-style: preserve-3d;
   transform-origin: 50% 50%;
-  transform: translate3d(var(--pan-x), var(--pan-y), 0) rotateX(var(--rx)) rotateY(var(--ry))
-    scale(var(--zoom));
+  transform: translate3d(calc(-50% + var(--pan-x)), calc(-50% + var(--pan-y)), 0)
+    rotateX(var(--rx)) rotateY(var(--ry)) scale(var(--zoom));
   transition: transform 160ms cubic-bezier(0.2, 0.7, 0.3, 1);
   will-change: transform;
-  /* Keep the layer composited even when mostly off-screen after pan */
   backface-visibility: hidden;
 }
 

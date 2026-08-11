@@ -209,32 +209,27 @@ function resetCameraBox() {
   sceneCamera.style.inset = '';
 }
 
-function sceneFitScale(sw = stage?.clientWidth || SCENE_MIN_W, sh = stage?.clientHeight || SCENE_MIN_H) {
-  if (sw < 2 || sh < 2) return 1;
-  return Math.max(1, SCENE_MIN_W / sw, SCENE_MIN_H / sh);
+function cameraBoxSize(sw = stage?.clientWidth || 0, sh = stage?.clientHeight || 0) {
+  return {
+    w: Math.max(sw * CAMERA_BLEED_X, SCENE_MIN_W),
+    h: Math.max(sh * CAMERA_BLEED_Y, SCENE_MIN_H),
+  };
 }
 
 /**
- * Keep the camera viewport-sized (CSS inset) so mobile WebKit does not cull a
- * giant off-screen 3D layer on reload. Desktop-or-larger scale is --zoom
- * (fit × user zoom).
+ * Camera size comes from CSS (min 1280×720). --zoom is user zoom only (edit).
+ * Do not multiply by a fit scale — that breaks perspective on mobile.
  */
 function syncCameraFrame() {
   if (!stage || !sceneCamera || !world) return false;
   const sw = stage.clientWidth;
   const sh = stage.clientHeight;
-  if (sw < 2 || sh < 2) {
-    resetCameraBox();
-    return false;
-  }
+  if (sw < 8 || sh < 8) return false;
   resetCameraBox();
-  const fit = sceneFitScale(sw, sh);
   const userZoom = clampZoom(state.zoom);
-  const z = fit * userZoom;
-  world.style.setProperty('--zoom', String(z));
-  const camW = sw * CAMERA_BLEED_X;
-  const camH = sh * CAMERA_BLEED_Y;
-  clampPan(sw, sh, camW * z, camH * z);
+  world.style.setProperty('--zoom', String(userZoom));
+  const { w: camW, h: camH } = cameraBoxSize(sw, sh);
+  clampPan(sw, sh, camW * userZoom, camH * userZoom);
   applyPan();
   return true;
 }
@@ -269,8 +264,8 @@ function centerView() {
 }
 
 /**
- * Size the placement plane in CSS pixels from the stage — never from
- * wall.clientWidth (3D-transformed ancestors often report 0 after mobile reload).
+ * Size the placement plane from the desktop camera box — never from
+ * wall.clientWidth (3D ancestors often report 0 after mobile reload).
  */
 function syncPlacementPlane() {
   const sized = syncCameraFrame();
@@ -279,10 +274,11 @@ function syncPlacementPlane() {
   const sh = stage.clientHeight;
   if (sw < 8 || sh < 8) return false;
 
-  let planeW = sw;
-  let planeH = sh;
-  if (sw / sh > PLANE_ASPECT) planeW = sh * PLANE_ASPECT;
-  else planeH = sw / PLANE_ASPECT;
+  const { w: refW, h: refH } = cameraBoxSize(sw, sh);
+  let planeW = refW;
+  let planeH = refH;
+  if (refW / refH > PLANE_ASPECT) planeW = refH * PLANE_ASPECT;
+  else planeH = refW / PLANE_ASPECT;
   planeW *= PLANE_FIT;
   planeH *= PLANE_FIT;
 
@@ -323,11 +319,11 @@ function planeLayoutSize() {
   const w = unitLayer?.clientWidth || 0;
   const h = unitLayer?.clientHeight || 0;
   if (w > 0 && h > 0) return { w, h };
-  const vw = window.innerWidth || 1280;
-  const vh = window.innerHeight || 800;
-  // Match syncPlacementPlane fallback before first layout.
-  if (vw / vh > PLANE_ASPECT) return { w: vh * PLANE_ASPECT, h: vh };
-  return { w: vw, h: vw / PLANE_ASPECT };
+  const sw = stage?.clientWidth || window.innerWidth || SCENE_MIN_W;
+  const sh = stage?.clientHeight || window.innerHeight || SCENE_MIN_H;
+  const { w: refW, h: refH } = cameraBoxSize(sw, sh);
+  if (refW / refH > PLANE_ASPECT) return { w: refH * PLANE_ASPECT * PLANE_FIT, h: refH * PLANE_FIT };
+  return { w: refW * PLANE_FIT, h: (refW / PLANE_ASPECT) * PLANE_FIT };
 }
 
 function sanitizeState(next = state) {
@@ -1597,9 +1593,8 @@ function movePanDrag(e) {
   pan.y = panDrag.origY + (e.clientY - panDrag.startY);
   const sw = stage.clientWidth || window.innerWidth || SCENE_MIN_W;
   const sh = stage.clientHeight || window.innerHeight || SCENE_MIN_H;
-  const z = sceneFitScale(sw, sh) * clampZoom(state.zoom);
-  const camW = sw * CAMERA_BLEED_X;
-  const camH = sh * CAMERA_BLEED_Y;
+  const z = clampZoom(state.zoom);
+  const { w: camW, h: camH } = cameraBoxSize(sw, sh);
   clampPan(sw, sh, camW * z, camH * z);
   applyPan();
 }

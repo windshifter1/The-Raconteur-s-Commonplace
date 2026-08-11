@@ -176,8 +176,6 @@ let drag = null;
 let pan = { x: 0, y: 0 };
 let panDrag = null;
 let overlayRaf = 0;
-/** Emergency 1:1 zoom when fit-scale leaves cases off-screen after reload. */
-let forceZoom1 = false;
 
 async function boot() {
   try {
@@ -214,8 +212,14 @@ function resetCameraBox() {
   sceneCamera.style.inset = '';
 }
 
+function cameraBoxSize(sw = stage?.clientWidth || 0, sh = stage?.clientHeight || 0) {
+  return {
+    w: Math.max(sw * CAMERA_BLEED_X, SCENE_MIN_W),
+    h: Math.max(sh * CAMERA_BLEED_Y, SCENE_MIN_H),
+  };
+}
+
 function relayout() {
-  forceZoom1 = false;
   resetCameraBox();
   centerView();
   syncPlacementPlane();
@@ -223,23 +227,18 @@ function relayout() {
 }
 
 /**
- * Camera stays viewport-sized (CSS inset). Desktop scale on small screens is
- * --zoom (not a 1280px DOM box — that goes blank on mobile WebKit reload).
+ * Camera size comes from CSS (min 1280×720). JS only owns pan + --zoom=1.
+ * Do not CSS-scale a phone-sized room — that breaks perspective.
  */
 function syncCameraFrame() {
   if (!stage || !sceneCamera || !world) return false;
   const sw = stage.clientWidth;
   const sh = stage.clientHeight;
-  if (sw < 8 || sh < 8) {
-    resetCameraBox();
-    return false;
-  }
+  if (sw < 8 || sh < 8) return false;
   resetCameraBox();
-  const fit = forceZoom1 ? 1 : Math.max(1, SCENE_MIN_W / sw, SCENE_MIN_H / sh);
-  world.style.setProperty('--zoom', String(fit));
-  const camW = sw * CAMERA_BLEED_X;
-  const camH = sh * CAMERA_BLEED_Y;
-  clampPan(sw, sh, camW * fit, camH * fit);
+  world.style.setProperty('--zoom', '1');
+  const { w: camW, h: camH } = cameraBoxSize(sw, sh);
+  clampPan(sw, sh, camW, camH);
   applyPan();
   return true;
 }
@@ -265,8 +264,8 @@ function centerView() {
 }
 
 /**
- * Size the placement plane in CSS pixels from the stage — never from
- * wall.clientWidth (3D-transformed ancestors often report 0 after mobile reload).
+ * Size the placement plane from the desktop camera box — never from
+ * wall.clientWidth (3D ancestors often report 0 after mobile reload).
  */
 function syncPlacementPlane() {
   if (!syncCameraFrame()) return false;
@@ -275,10 +274,11 @@ function syncPlacementPlane() {
   const sh = stage.clientHeight;
   if (sw < 8 || sh < 8) return false;
 
-  let planeW = sw;
-  let planeH = sh;
-  if (sw / sh > PLANE_ASPECT) planeW = sh * PLANE_ASPECT;
-  else planeH = sw / PLANE_ASPECT;
+  const { w: refW, h: refH } = cameraBoxSize(sw, sh);
+  let planeW = refW;
+  let planeH = refH;
+  if (refW / refH > PLANE_ASPECT) planeW = refH * PLANE_ASPECT;
+  else planeH = refW / PLANE_ASPECT;
   planeW *= PLANE_FIT;
   planeH *= PLANE_FIT;
 
@@ -321,12 +321,6 @@ function ensureSceneVisible(attempt = 0) {
     return;
   }
 
-  // If fit-zoom left everything off-screen, fall back to 1:1 then retry.
-  if (attempt === 3) {
-    forceZoom1 = true;
-    centerView();
-  }
-
   if (attempt >= 25) return;
   setTimeout(() => {
     resetCameraBox();
@@ -340,11 +334,11 @@ function planeLayoutSize() {
   const w = unitLayer?.clientWidth || 0;
   const h = unitLayer?.clientHeight || 0;
   if (w > 0 && h > 0) return { w, h };
-  const vw = window.innerWidth || 1280;
-  const vh = window.innerHeight || 800;
-  // Match syncPlacementPlane fallback before first layout.
-  if (vw / vh > PLANE_ASPECT) return { w: vh * PLANE_ASPECT, h: vh };
-  return { w: vw, h: vw / PLANE_ASPECT };
+  const sw = stage?.clientWidth || window.innerWidth || SCENE_MIN_W;
+  const sh = stage?.clientHeight || window.innerHeight || SCENE_MIN_H;
+  const { w: refW, h: refH } = cameraBoxSize(sw, sh);
+  if (refW / refH > PLANE_ASPECT) return { w: refH * PLANE_ASPECT * PLANE_FIT, h: refH * PLANE_FIT };
+  return { w: refW * PLANE_FIT, h: (refW / PLANE_ASPECT) * PLANE_FIT };
 }
 
 function sanitizeState(next = state) {
@@ -1597,8 +1591,8 @@ function movePanDrag(e) {
   pan.y = panDrag.origY + (e.clientY - panDrag.startY);
   const sw = stage?.clientWidth || window.innerWidth || SCENE_MIN_W;
   const sh = stage?.clientHeight || window.innerHeight || SCENE_MIN_H;
-  const fit = Math.max(1, SCENE_MIN_W / sw, SCENE_MIN_H / sh);
-  clampPan(sw, sh, sw * CAMERA_BLEED_X * fit, sh * CAMERA_BLEED_Y * fit);
+  const { w: camW, h: camH } = cameraBoxSize(sw, sh);
+  clampPan(sw, sh, camW, camH);
   applyPan();
   scheduleOverlaySync();
 }
