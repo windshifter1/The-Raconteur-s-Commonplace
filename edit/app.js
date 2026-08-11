@@ -16,9 +16,8 @@ const GAP = 0.35;
 const MAX_UNITS = 9;
 const MIN_SHELVES = 1;
 const MAX_SHELVES = 8;
-/** Each bay keeps at least this % of case height (global floor). */
-const MIN_SHELF_SHARE_PCT = 20;
-const MIN_SHELF_SHARE = MIN_SHELF_SHARE_PCT / 100;
+/** Fixed minimum bay height in CSS pixels (not a % of the case). */
+const MIN_SHELF_PX = 65;
 const MIN_BOOKS = 8;
 const MAX_BOOKS = 56;
 const DEFAULT_BOOKS = 40;
@@ -407,15 +406,54 @@ function totalWeight(shelves) {
   return shelves.reduce((sum, s) => sum + s.weight, 0) || 1;
 }
 
+function caseHeightPx(unit) {
+  const layerH = planeLayoutSize().h;
+  return (Math.max(MIN_H, unit.h) / 100) * layerH;
+}
+
+/** Minimum case height (%) so every current shelf keeps at least MIN_SHELF_PX. */
+function minHeightPctForShelves(count) {
+  const n = Math.max(MIN_SHELVES, count || MIN_SHELVES);
+  const layerH = planeLayoutSize().h;
+  if (layerH > 0) {
+    return Math.max(MIN_H, Math.min(MAX_H, ((n * MIN_SHELF_PX) / layerH) * 100));
+  }
+  return Math.max(MIN_H, Math.min(MAX_H, n * 8));
+}
+
+/** Grow the case (keeping bottom edge) until it fits its shelves. */
+function ensureCaseFitsShelves(unit) {
+  if (!unit) return;
+  const need = minHeightPctForShelves(unit.shelves.length);
+  if (unit.h < need - 1e-6) {
+    const bottom = unit.y + unit.h;
+    unit.h = need;
+    unit.y = bottom - unit.h;
+  }
+  clampUnitSizeOnly(unit);
+  clampUnitInPlane(unit);
+}
+
 function shelfCountLimits(_unit) {
   return { min: MIN_SHELVES, max: MAX_SHELVES };
 }
 
-/** Rebalance shelf shares to the global minimum bay height. */
+/**
+ * Minimum bay height as a fraction of this case's pixel height.
+ * Uses a fixed pixel floor so tall cases are not locked to a large % each.
+ */
+function minShareForUnit(unit) {
+  const n = Math.max(1, unit?.shelves?.length || MIN_SHELVES);
+  const hPx = caseHeightPx(unit);
+  if (hPx <= 1) return 1 / n;
+  return Math.min(MIN_SHELF_PX / hPx, 1 / n);
+}
+
+/** Clamp every shelf to the fixed pixel floor without changing ordering. */
 function enforceShelfShares(unit) {
   const n = unit.shelves.length;
   if (n <= 0) return;
-  const minShare = MIN_SHELF_SHARE;
+  const minShare = minShareForUnit(unit);
   let shares = unit.shelves.map((s) => Math.max(0, Number(s.weight) || 0));
   let total = shares.reduce((a, b) => a + b, 0);
   if (total <= 0) {
@@ -460,7 +498,7 @@ function pairWeightBounds(unit, index, pair, weights = null) {
   const src = weights || unit.shelves.map((s) => s.weight);
   const pairSum = src[index] + src[pair];
   const total = src.reduce((a, b) => a + b, 0) || 1;
-  const minW = MIN_SHELF_SHARE * total;
+  const minW = minShareForUnit(unit) * total;
   const maxW = Math.max(minW, pairSum - minW);
   return { pairSum, total, minW, maxW };
 }
@@ -474,7 +512,7 @@ function resizeShelfPair(unit, index, newWeight) {
   if (!shelves[index]) return;
   const pair = index < shelves.length - 1 ? index + 1 : index - 1;
   const total = totalWeight(shelves);
-  const minW = MIN_SHELF_SHARE * total;
+  const minW = minShareForUnit(unit) * total;
   if (pair < 0 || pair >= shelves.length) {
     shelves[index].weight = Math.max(minW, newWeight);
     return;
@@ -503,15 +541,6 @@ function bookCountFor(shelf) {
   return Math.max(MIN_BOOKS, Math.round(shelf.books * available));
 }
 
-function ensureCaseFitsShelves(unit) {
-  if (!unit) return;
-  enforceShelfShares(unit);
-  clampUnitInPlane(unit);
-}
-
-/* ── Geometry / snap / collision ── */
-
-/** Hard size floors/ceilings only — all limits are the constants above. */
 function clampUnitSizeOnly(u) {
   const w = Number(u.w);
   const h = Number(u.h);
@@ -551,7 +580,7 @@ function clampUnitBounds(u) {
 function clampResizeDrag(unit, edge, orig) {
   const minW = MIN_W;
   const maxW = MAX_W;
-  const minH = MIN_H;
+  const minH = Math.max(MIN_H, minHeightPctForShelves(unit.shelves?.length || MIN_SHELVES));
   const maxH = MAX_H;
   const plane = dragLimitPct(unit);
 
@@ -694,7 +723,7 @@ function snapUnitPosition(unit) {
 function snapUnitResize(unit, edge) {
   const others = otherUnits(unit.id);
   const lim = dragLimitPct(unit);
-  const minH = MIN_H;
+  const minH = Math.max(MIN_H, minHeightPctForShelves(unit.shelves?.length || MIN_SHELVES));
   if (edge.includes('e')) {
     const targets = [lim.maxX, ...others.flatMap((o) => [o.x - GAP, o.x + o.w])];
     const right = snapValue(unit.x + unit.w, targets);
@@ -817,9 +846,10 @@ function overlapsAny(slot, pad = GAP * 0.25, ignoreId = null) {
 }
 
 function findFreeSlot(anchor, dir) {
+  const minHForNew = minHeightPctForShelves(DEFAULT_SHELF_COUNT);
   const sizes = ADJACENT_CASE_SIZES.map(({ w, h }) => ({
     w: Math.min(MAX_W, Math.max(MIN_W, w)),
-    h: Math.min(MAX_H, Math.max(MIN_H, h)),
+    h: Math.min(MAX_H, Math.max(minHForNew, h)),
   }));
 
   const build = (w, h, off = 0) => {
@@ -861,7 +891,7 @@ function findFreeSlot(anchor, dir) {
   const offsets = [0, 6, -6, 12, -12, 18, -18, 28, -28];
   const trySlot = (slot) => {
     fitToBand(slot);
-    if (slot.w < MIN_W - 0.01 || slot.h < MIN_H - 0.01) return null;
+    if (slot.w < MIN_W - 0.01 || slot.h < minHForNew - 0.01) return null;
     if (!overlapsAny(slot)) return slot;
     return null;
   };
@@ -891,7 +921,7 @@ function findFreeSlot(anchor, dir) {
 function finalizeUnitLayout(unit, { snap = true, edge = null } = {}) {
   if (edge) {
     // Preserve undragged edges so snap/clamp cannot translate the case.
-    const minH = MIN_H;
+    const minH = Math.max(MIN_H, minHeightPctForShelves(unit.shelves?.length || MIN_SHELVES));
     const fixedLeft = edge.includes('w') ? null : unit.x;
     const fixedRight = edge.includes('e') ? null : unit.x + unit.w;
     const fixedTop = edge.includes('n') ? null : unit.y;
@@ -1208,13 +1238,13 @@ function syncInspector() {
     return;
   }
   const total = totalWeight(unit.shelves);
-  const minPct = MIN_SHELF_SHARE_PCT;
+  const minPct = minShareForUnit(unit) * 100;
   const sharePct = (shelf.weight / total) * 100;
   const pair = index < unit.shelves.length - 1 ? index + 1 : index > 0 ? index - 1 : -1;
-  let maxPct = 100 - MIN_SHELF_SHARE_PCT * Math.max(0, unit.shelves.length - 1);
+  let maxPct = 100 - minPct * Math.max(0, unit.shelves.length - 1);
   if (pair >= 0) {
     const pairPct = ((unit.shelves[index].weight + unit.shelves[pair].weight) / total) * 100;
-    maxPct = Math.min(maxPct, Math.max(minPct, pairPct - MIN_SHELF_SHARE_PCT));
+    maxPct = Math.max(minPct, pairPct - minPct);
   }
   weightInput.min = String(minPct);
   weightInput.max = String(maxPct);
