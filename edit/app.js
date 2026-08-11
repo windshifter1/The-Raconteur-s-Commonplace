@@ -780,38 +780,64 @@ function separateFromOthers(unit) {
   }
 }
 
-/** Push neighbors away so a resized case can keep its anchored edges. */
-function separateOthersFrom(unit) {
-  for (let pass = 0; pass < 8; pass++) {
-    let moved = false;
-    for (const other of otherUnits(unit.id)) {
-      if (!rectsOverlap(unit, other, GAP * 0.5)) continue;
-      const { ox, oy } = overlapAmount(
-        { x: unit.x - GAP / 2, y: unit.y - GAP / 2, w: unit.w + GAP, h: unit.h + GAP },
-        { x: other.x - GAP / 2, y: other.y - GAP / 2, w: other.w + GAP, h: other.h + GAP },
-      );
-      if (ox <= 0 || oy <= 0) continue;
-      if (ox < oy) {
-        const unitCx = unit.x + unit.w / 2;
-        const otherCx = other.x + other.w / 2;
-        if (otherCx >= unitCx) other.x += ox + 0.01;
-        else other.x -= ox + 0.01;
-      } else {
-        const unitCy = unit.y + unit.h / 2;
-        const otherCy = other.y + other.h / 2;
-        if (otherCy >= unitCy) other.y += oy + 0.01;
-        else other.y -= oy + 0.01;
-      }
-      if (other.id && unitEl(other.id)) clampUnitBounds(other);
-      else {
-        other.x = Math.min(100 - other.w, Math.max(0, other.x));
-        other.y = Math.min(100 - other.h, Math.max(0, other.y));
-      }
-      if (other.id) applyUnitGeometry(other);
-      moved = true;
+/**
+ * Stop a resized edge against other cases — neighbors stay put.
+ * Opposite (anchored) edges are preserved via `orig`.
+ */
+function clampResizeAgainstOthers(unit, edge, orig) {
+  const minW = MIN_W;
+  const minH = Math.max(MIN_H, minHeightPctForShelves(unit.shelves?.length || MIN_SHELVES));
+  const pad = GAP;
+  let left = unit.x;
+  let top = unit.y;
+  let right = unit.x + unit.w;
+  let bottom = unit.y + unit.h;
+
+  for (const other of otherUnits(unit.id)) {
+    const oL = other.x;
+    const oR = other.x + other.w;
+    const oT = other.y;
+    const oB = other.y + other.h;
+    const yOverlap = bottom > oT + 0.01 && top < oB - 0.01;
+    const xOverlap = right > oL + 0.01 && left < oR - 0.01;
+
+    if (edge.includes('e') && yOverlap && right > oL - pad && left < oL) {
+      right = Math.min(right, oL - pad);
     }
-    if (!moved) break;
+    if (edge.includes('w') && yOverlap && left < oR + pad && right > oR) {
+      left = Math.max(left, oR + pad);
+    }
+    if (edge.includes('s') && xOverlap && bottom > oT - pad && top < oT) {
+      bottom = Math.min(bottom, oT - pad);
+    }
+    if (edge.includes('n') && xOverlap && top < oB + pad && bottom > oB) {
+      top = Math.max(top, oB + pad);
+    }
   }
+
+  // Keep undragged edges fixed to the pre-drag anchors.
+  if (!edge.includes('w')) left = orig.x;
+  if (!edge.includes('e')) right = orig.x + orig.w;
+  if (!edge.includes('n')) top = orig.y;
+  if (!edge.includes('s')) bottom = orig.y + orig.h;
+
+  let w = right - left;
+  let h = bottom - top;
+  if (w < minW) {
+    if (edge.includes('w') && !edge.includes('e')) left = right - minW;
+    else right = left + minW;
+    w = minW;
+  }
+  if (h < minH) {
+    if (edge.includes('n') && !edge.includes('s')) top = bottom - minH;
+    else bottom = top + minH;
+    h = minH;
+  }
+
+  unit.x = left;
+  unit.y = top;
+  unit.w = w;
+  unit.h = h;
 }
 
 function resolveAllOverlaps(units) {
@@ -955,14 +981,15 @@ function finalizeUnitLayout(unit, { snap = true, edge = null } = {}) {
     const anchorTop = fixedTop != null ? fixedTop : unit.y;
     const anchorRight = fixedRight != null ? fixedRight : unit.x + unit.w;
     const anchorBottom = fixedBottom != null ? fixedBottom : unit.y + unit.h;
-    clampResizeDrag(unit, edge, {
+    const anchor = {
       x: anchorLeft,
       y: anchorTop,
       w: anchorRight - anchorLeft,
       h: anchorBottom - anchorTop,
-    });
-    // Keep this case's anchors; nudge neighbors out of the way instead.
-    separateOthersFrom(unit);
+    };
+    clampResizeDrag(unit, edge, anchor);
+    // Stop against neighbors — do not shove them.
+    clampResizeAgainstOthers(unit, edge, anchor);
     return;
   }
 
@@ -1985,11 +2012,6 @@ function applyShelfDrag(e) {
   syncInspector();
 }
 
-/** Live-update every case's DOM after a shove/collision pass. */
-function applyAllUnitGeometry() {
-  state.units.forEach((u) => applyUnitGeometry(u));
-}
-
 editOverlay.addEventListener('pointerdown', (e) => {
   if (!editing) return;
   const handle = e.target.closest('.unit-handle');
@@ -2096,7 +2118,7 @@ window.addEventListener('pointermove', (e) => {
     unit.w = drag.orig.w;
     unit.h = drag.orig.h;
     applyLiveCollision(unit);
-    applyAllUnitGeometry();
+    applyUnitGeometry(unit);
     return;
   }
 
@@ -2126,9 +2148,9 @@ window.addEventListener('pointermove', (e) => {
     unit.h = h;
     // Edge-anchored clamp — never translate the case when past size/screen limits.
     clampResizeDrag(unit, edge, o);
-    // Live shove: push overlapping neighbors aside while dragging.
-    separateOthersFrom(unit);
-    applyAllUnitGeometry();
+    // Stop against neighbors — do not shove them.
+    clampResizeAgainstOthers(unit, edge, o);
+    applyUnitGeometry(unit);
   }
 });
 
@@ -2155,7 +2177,7 @@ function endPointerDrag() {
       snap: true,
       edge: ended.type === 'resize' ? ended.edge : null,
     });
-    applyAllUnitGeometry();
+    applyUnitGeometry(unit);
   }
   saveState();
   buildScene();
