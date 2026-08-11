@@ -1846,62 +1846,45 @@ function boxAtPoint(unitId, clientX, clientY) {
 }
 
 /**
- * Hit-test the visible wood plank (and its drag nub) for a shelf.
- * Prefers real plank/handle rects; falls back to the bottom wood strip of each row.
+ * Hit-test wood dividers in placement-plane % space.
+ * Avoids 3D getBoundingClientRect AABBs, which inflate under perspective and
+ * overlap neighboring shelves (causing the wrong bay to drag / "shove").
  */
 function woodPlankAtPoint(unitId, clientX, clientY) {
+  const unit = findUnit(unitId);
   const root = unitEl(unitId);
-  if (!root) return null;
+  if (!unit || !root || unit.h <= 0) return null;
+
+  const layer = unitLayer.getBoundingClientRect();
+  if (layer.width < 2 || layer.height < 2) return null;
+
+  const xPct = ((clientX - layer.left) / layer.width) * 100;
+  const yPct = ((clientY - layer.top) / layer.height) * 100;
+  if (xPct < unit.x - 0.4 || xPct > unit.x + unit.w + 0.4) return null;
+  if (yPct < unit.y - 0.6 || yPct > unit.y + unit.h + 0.6) return null;
+
+  const localY = ((yPct - unit.y) / unit.h) * 100;
+  const casePx = Math.max(1, (unit.h / 100) * layer.height);
+  // ~14px hit band, clamped so short bays don't steal neighbors' dividers.
+  const slopPct = Math.max(1.6, Math.min(5.5, (14 / casePx) * 100));
 
   let best = null;
   let bestDist = Infinity;
-
-  const hitRect = (node, left, top, right, bottom) => {
-    if (clientX < left || clientX > right || clientY < top || clientY > bottom) return;
-    const cx = Math.min(Math.max(clientX, left), right);
-    const cy = Math.min(Math.max(clientY, top), bottom);
-    const dist = Math.hypot(clientX - cx, clientY - cy);
-    if (dist >= bestDist) return;
-    const row = node.closest('.shelf-row') || node;
-    const shelfId = node.dataset.shelfId || row?.dataset.shelfId;
-    if (!shelfId) return;
+  const metrics = layoutMetrics(unit.shelves);
+  metrics.forEach(({ shelf, top, height }, index) => {
+    // Floor plank under the last bay is not a height divider.
+    if (index >= metrics.length - 1) return;
+    const plankY = top + height;
+    const dist = Math.abs(localY - plankY);
+    if (dist > slopPct || dist >= bestDist) return;
     bestDist = dist;
-    best = { shelfId, row, node };
-  };
-
-  for (const row of root.querySelectorAll('.shelf-row')) {
-    const plank = row.querySelector('.shelf-plank');
-    const handle = row.querySelector('.shelf-handle');
-    if (plank) {
-      const r = plank.getBoundingClientRect();
-      if (r.width > 0 && r.height > 0) {
-        const midY = (r.top + r.bottom) / 2;
-        const halfH = Math.max((r.bottom - r.top) / 2, 8);
-        hitRect(plank, r.left - 2, midY - halfH - 4, r.right + 2, midY + halfH + 6);
-      }
-    }
-    if (handle) {
-      const r = handle.getBoundingClientRect();
-      if (r.width > 0 && r.height > 0) {
-        hitRect(handle, r.left - 2, r.top - 2, r.right + 2, r.bottom + 2);
-      }
-    }
-    // Row-bottom strip fallback — matches the flex-laid wood band under the books.
-    if (plank && row.dataset.shelfId) {
-      const rowR = row.getBoundingClientRect();
-      const plankH = Math.max(plank.getBoundingClientRect().height || 0, 12);
-      if (rowR.width > 0 && rowR.height > 0) {
-        hitRect(
-          plank,
-          rowR.left + 2,
-          rowR.bottom - plankH - 10,
-          rowR.right - 2,
-          rowR.bottom + 8,
-        );
-      }
-    }
-  }
-
+    const row = root.querySelector(`.shelf-row[data-shelf-id="${CSS.escape(shelf.id)}"]`);
+    best = {
+      shelfId: shelf.id,
+      row,
+      node: row?.querySelector('.shelf-plank') || row,
+    };
+  });
   return best;
 }
 
@@ -1939,6 +1922,8 @@ function startShelfHeightDrag(unit, shelfId, e) {
   const pair = index + 1;
   const weights = unit.shelves.map((s) => s.weight);
   const bounds = pairWeightBounds(unit, index, pair, weights);
+  // Layout px height (not 3D AABB) so drag tracking stays 1:1 with the pointer.
+  const cavityH = Math.max(1, caseHeightPx(unit));
   drag = {
     type: 'shelf-drag',
     unitId: unit.id,
@@ -1952,6 +1937,7 @@ function startShelfHeightDrag(unit, shelfId, e) {
     maxW: bounds.maxW,
     pairSum: bounds.pairSum,
     total: bounds.total,
+    cavityH,
     lastA: weights[index],
     armed: false,
   };
@@ -1980,8 +1966,7 @@ function applyShelfDrag(e) {
     drag.armed = true;
   }
 
-  const cavity = unitEl(unit.id)?.querySelector('.unit-pick') || unitEl(unit.id);
-  const cavityH = cavity?.getBoundingClientRect().height || 1;
+  const cavityH = Math.max(1, drag.cavityH || caseHeightPx(unit));
   const a0 = drag.weights[drag.index];
   const delta = (dy / cavityH) * drag.total * 1.35 * drag.sign;
   const a = Math.min(drag.maxW, Math.max(drag.minW, a0 + delta));
@@ -1990,6 +1975,7 @@ function applyShelfDrag(e) {
   if (Math.abs(a - drag.lastA) < 1e-8) return;
   drag.lastA = a;
 
+  // Pair-only trade — restore every other shelf so only the neighbor moves.
   unit.shelves.forEach((s, i) => {
     s.weight = drag.weights[i];
   });
@@ -1997,6 +1983,11 @@ function applyShelfDrag(e) {
   unit.shelves[drag.pair].weight = drag.pairSum - a;
   applyShelfHeights(unit);
   syncInspector();
+}
+
+/** Live-update every case's DOM after a shove/collision pass. */
+function applyAllUnitGeometry() {
+  state.units.forEach((u) => applyUnitGeometry(u));
 }
 
 editOverlay.addEventListener('pointerdown', (e) => {
@@ -2105,7 +2096,7 @@ window.addEventListener('pointermove', (e) => {
     unit.w = drag.orig.w;
     unit.h = drag.orig.h;
     applyLiveCollision(unit);
-    applyUnitGeometry(unit);
+    applyAllUnitGeometry();
     return;
   }
 
@@ -2135,7 +2126,9 @@ window.addEventListener('pointermove', (e) => {
     unit.h = h;
     // Edge-anchored clamp — never translate the case when past size/screen limits.
     clampResizeDrag(unit, edge, o);
-    applyUnitGeometry(unit);
+    // Live shove: push overlapping neighbors aside while dragging.
+    separateOthersFrom(unit);
+    applyAllUnitGeometry();
   }
 });
 
@@ -2162,7 +2155,7 @@ function endPointerDrag() {
       snap: true,
       edge: ended.type === 'resize' ? ended.edge : null,
     });
-    applyUnitGeometry(unit);
+    applyAllUnitGeometry();
   }
   saveState();
   buildScene();
