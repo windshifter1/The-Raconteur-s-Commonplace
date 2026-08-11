@@ -7,7 +7,7 @@ const LEGACY_KEY = 'trc-mockup6-library-v1';
 const bookColors = ['#bd6256', '#597e9d', '#ce9551', '#67886d', '#a3647a', '#a68a62', '#4c7779'];
 const boxColors = ['#8a5339', '#6b4030', '#a26443', '#5a3429'];
 
-const MIN_W = 14;
+const MIN_W = 7;
 const MIN_H = 18;
 const MAX_W = 96;
 const MAX_H = 92;
