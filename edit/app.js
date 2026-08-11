@@ -194,6 +194,7 @@ let drag = null;
 /** Screen pan offset (px) for small viewports that keep desktop scene scale. */
 let pan = { x: 0, y: 0 };
 let panDrag = null;
+let pinch = null;
 let overlayRaf = 0;
 
 /** Clear leftover inline camera box from older builds / bfcache. */
@@ -1606,7 +1607,41 @@ function endPanDrag(e) {
   world.classList.remove('is-panning');
 }
 
+function isMobileTouchUi() {
+  return window.matchMedia('(hover: none), (pointer: coarse)').matches;
+}
+
+function touchDistance(a, b) {
+  return Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY);
+}
+
+function beginPinch(touches) {
+  if (touches.length < 2) return;
+  endPanDrag();
+  pinch = {
+    startDist: Math.max(1, touchDistance(touches[0], touches[1])),
+    startZoom: clampZoom(state.zoom),
+  };
+  world.classList.add('is-panning');
+  aim(0, 0);
+}
+
+function movePinch(touches) {
+  if (!pinch || touches.length < 2) return;
+  const dist = Math.max(1, touchDistance(touches[0], touches[1]));
+  state.zoom = clampZoom(pinch.startZoom * (dist / pinch.startDist));
+  applyZoom();
+}
+
+function endPinch() {
+  if (!pinch) return;
+  pinch = null;
+  world.classList.remove('is-panning');
+  saveState();
+}
+
 stage.addEventListener('pointermove', (e) => {
+  if (pinch) return;
   if (panDrag) {
     movePanDrag(e);
     return;
@@ -1618,10 +1653,11 @@ stage.addEventListener('pointermove', (e) => {
 });
 
 stage.addEventListener('pointerleave', () => {
-  if (!drag && !panDrag) aim(0, 0);
+  if (!drag && !panDrag && !pinch) aim(0, 0);
 });
 
 stage.addEventListener('pointerdown', (e) => {
+  if (pinch) return;
   const isMiddle = e.pointerType === 'mouse' && e.button === 1;
   const isTouchPan = e.pointerType === 'touch' && canStartTouchPan(e.target);
   if (!isMiddle && !isTouchPan) return;
@@ -1632,11 +1668,43 @@ stage.addEventListener('pointerdown', (e) => {
 stage.addEventListener('pointerup', endPanDrag);
 stage.addEventListener('pointercancel', endPanDrag);
 
+stage.addEventListener(
+  'touchstart',
+  (e) => {
+    if (!isMobileTouchUi()) return;
+    if (e.touches.length >= 2) {
+      e.preventDefault();
+      beginPinch(e.touches);
+    }
+  },
+  { passive: false },
+);
+stage.addEventListener(
+  'touchmove',
+  (e) => {
+    if (!pinch) return;
+    if (e.touches.length >= 2) {
+      e.preventDefault();
+      movePinch(e.touches);
+    }
+  },
+  { passive: false },
+);
+stage.addEventListener('touchend', (e) => {
+  if (e.touches.length < 2) endPinch();
+});
+stage.addEventListener('touchcancel', () => endPinch());
+
 stage.addEventListener('mousedown', (e) => {
   if (e.button === 1) e.preventDefault();
 });
 stage.addEventListener('auxclick', (e) => {
   if (e.button === 1) e.preventDefault();
+});
+
+document.addEventListener('selectstart', (e) => {
+  if (e.target?.closest?.('input, textarea, .search-results, .edit-panel')) return;
+  e.preventDefault();
 });
 
 window.addEventListener('resize', () => {

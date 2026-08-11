@@ -36,6 +36,8 @@ const SCENE_MIN_H = 720;
 /** Extra bleed so the room still fills the frame on large screens (old ~inset). */
 const CAMERA_BLEED_X = 1.2;
 const CAMERA_BLEED_Y = 1.12;
+const ZOOM_MIN = 0.75;
+const ZOOM_MAX = 1.45;
 
 const world = document.getElementById('world');
 const stage = document.getElementById('stage');
@@ -175,6 +177,9 @@ let drag = null;
 /** Screen pan offset (px) for small viewports that keep desktop scene scale. */
 let pan = { x: 0, y: 0 };
 let panDrag = null;
+/** Mobile pinch zoom (session only — not baked into library state). */
+let viewZoom = 1;
+let pinch = null;
 let overlayRaf = 0;
 
 async function boot() {
@@ -227,20 +232,37 @@ function relayout() {
 }
 
 /**
- * Camera size comes from CSS (min 1280×720). JS only owns pan + --zoom=1.
+ * Camera size comes from CSS (min 1280×720). --zoom is mobile pinch / session zoom.
  * Do not CSS-scale a phone-sized room — that breaks perspective.
  */
+function clampZoom(z) {
+  const n = Number(z);
+  return Math.min(ZOOM_MAX, Math.max(ZOOM_MIN, Number.isFinite(n) ? n : 1));
+}
+
 function syncCameraFrame() {
   if (!stage || !sceneCamera || !world) return false;
   const sw = stage.clientWidth;
   const sh = stage.clientHeight;
   if (sw < 8 || sh < 8) return false;
   resetCameraBox();
-  world.style.setProperty('--zoom', '1');
+  viewZoom = clampZoom(viewZoom);
+  world.style.setProperty('--zoom', String(viewZoom));
   const { w: camW, h: camH } = cameraBoxSize(sw, sh);
-  clampPan(sw, sh, camW, camH);
+  clampPan(sw, sh, camW * viewZoom, camH * viewZoom);
   applyPan();
   return true;
+}
+
+function applyViewZoom() {
+  if (!world) return;
+  viewZoom = clampZoom(viewZoom);
+  world.style.setProperty('--zoom', String(viewZoom));
+  const sw = stage?.clientWidth || window.innerWidth || SCENE_MIN_W;
+  const sh = stage?.clientHeight || window.innerHeight || SCENE_MIN_H;
+  const { w: camW, h: camH } = cameraBoxSize(sw, sh);
+  clampPan(sw, sh, camW * viewZoom, camH * viewZoom);
+  applyPan();
 }
 
 function clampPan(sw, sh, camW, camH) {
@@ -1592,7 +1614,7 @@ function movePanDrag(e) {
   const sw = stage?.clientWidth || window.innerWidth || SCENE_MIN_W;
   const sh = stage?.clientHeight || window.innerHeight || SCENE_MIN_H;
   const { w: camW, h: camH } = cameraBoxSize(sw, sh);
-  clampPan(sw, sh, camW, camH);
+  clampPan(sw, sh, camW * viewZoom, camH * viewZoom);
   applyPan();
   scheduleOverlaySync();
 }
@@ -1604,8 +1626,41 @@ function endPanDrag(e) {
   world?.classList.remove('is-panning');
 }
 
+function isMobileTouchUi() {
+  return window.matchMedia('(hover: none), (pointer: coarse)').matches;
+}
+
+function touchDistance(a, b) {
+  return Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY);
+}
+
+function beginPinch(touches) {
+  if (touches.length < 2) return;
+  endPanDrag();
+  pinch = {
+    startDist: Math.max(1, touchDistance(touches[0], touches[1])),
+    startZoom: viewZoom,
+  };
+  world?.classList.add('is-panning');
+  aim(0, 0);
+}
+
+function movePinch(touches) {
+  if (!pinch || touches.length < 2) return;
+  const dist = Math.max(1, touchDistance(touches[0], touches[1]));
+  viewZoom = clampZoom(pinch.startZoom * (dist / pinch.startDist));
+  applyViewZoom();
+}
+
+function endPinch() {
+  if (!pinch) return;
+  pinch = null;
+  world?.classList.remove('is-panning');
+}
+
 if (stage) {
   stage.addEventListener('pointermove', (e) => {
+    if (pinch) return;
     if (panDrag) {
       movePanDrag(e);
       return;
@@ -1617,10 +1672,11 @@ if (stage) {
   });
 
   stage.addEventListener('pointerleave', () => {
-    if (!drag && !panDrag) aim(0, 0);
+    if (!drag && !panDrag && !pinch) aim(0, 0);
   });
 
   stage.addEventListener('pointerdown', (e) => {
+    if (pinch) return;
     const isMiddle = e.pointerType === 'mouse' && e.button === 1;
     const isTouchPan = e.pointerType === 'touch' && canStartTouchPan(e.target);
     if (!isMiddle && !isTouchPan) return;
@@ -1631,6 +1687,34 @@ if (stage) {
   stage.addEventListener('pointerup', endPanDrag);
   stage.addEventListener('pointercancel', endPanDrag);
 
+  // Mobile-only pinch zoom (two-finger). Desktop keeps page/ctrl-wheel alone.
+  stage.addEventListener(
+    'touchstart',
+    (e) => {
+      if (!isMobileTouchUi()) return;
+      if (e.touches.length >= 2) {
+        e.preventDefault();
+        beginPinch(e.touches);
+      }
+    },
+    { passive: false },
+  );
+  stage.addEventListener(
+    'touchmove',
+    (e) => {
+      if (!pinch) return;
+      if (e.touches.length >= 2) {
+        e.preventDefault();
+        movePinch(e.touches);
+      }
+    },
+    { passive: false },
+  );
+  stage.addEventListener('touchend', (e) => {
+    if (e.touches.length < 2) endPinch();
+  });
+  stage.addEventListener('touchcancel', () => endPinch());
+
   // Prevent browser auto-scroll / paste from middle click.
   stage.addEventListener('mousedown', (e) => {
     if (e.button === 1) e.preventDefault();
@@ -1639,6 +1723,12 @@ if (stage) {
     if (e.button === 1) e.preventDefault();
   });
 }
+
+// Block double-tap-drag text selection of the whole scene.
+document.addEventListener('selectstart', (e) => {
+  if (e.target?.closest?.('input, textarea, .search-results')) return;
+  e.preventDefault();
+});
 
 window.addEventListener('resize', () => {
   relayout();

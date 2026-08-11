@@ -37,11 +37,21 @@ body {
   overflow: hidden;
   touch-action: none;
   cursor: var(--cursor-idle);
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
 }
 
 button,
 input {
   font: inherit;
+}
+
+input,
+textarea,
+[contenteditable='true'] {
+  -webkit-user-select: text;
+  user-select: text;
 }
 
 button {
@@ -942,6 +952,8 @@ button {
   background: rgba(35, 27, 28, 0.94);
   border: 2px solid rgba(215, 157, 87, 0.56);
   box-shadow: 0 11px 0 rgba(25, 18, 21, 0.46), 0 18px 42px rgba(11, 16, 19, 0.36);
+  -webkit-user-select: text;
+  user-select: text;
 }
 
 .search-results[hidden] {
