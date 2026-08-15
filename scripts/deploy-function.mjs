@@ -33,4 +33,23 @@ const result = spawnSync(
   },
 );
 
-process.exit(result.status ?? 1);
+const searchResult = spawnSync(
+  'npx',
+  [
+    'supabase',
+    'functions',
+    'deploy',
+    'book-search',
+    '--project-ref',
+    'joctuzargvajerqwxuvn',
+    '--no-verify-jwt',
+  ],
+  {
+    cwd: root,
+    stdio: 'inherit',
+    shell: true,
+    env: { ...process.env, SUPABASE_ACCESS_TOKEN: token },
+  },
+);
+
+process.exit(searchResult.status ?? result.status ?? 1);

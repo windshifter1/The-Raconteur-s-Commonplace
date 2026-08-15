@@ -33,11 +33,21 @@ jobs:
         with:
           version: latest
 
-      - name: Deploy catalogue function
+      - name: Deploy catalogue + book-search functions
         env:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          GOOGLE_BOOKS_API_KEY: ${{ secrets.GOOGLE_BOOKS_API_KEY }}
         run: |
+          if [ -n "$GOOGLE_BOOKS_API_KEY" ]; then
+            supabase secrets set GOOGLE_BOOKS_API_KEY="$GOOGLE_BOOKS_API_KEY" \
+              --project-ref joctuzargvajerqwxuvn
+          else
+            echo "GOOGLE_BOOKS_API_KEY is not set yet — Google Books results will be skipped."
+          fi
           supabase functions deploy catalogue \
+            --project-ref joctuzargvajerqwxuvn \
+            --no-verify-jwt
+          supabase functions deploy book-search \
             --project-ref joctuzargvajerqwxuvn \
             --no-verify-jwt
 

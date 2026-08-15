@@ -3,3 +3,7 @@
 [functions.catalogue]
 # Public HTML app for Kobo — must work without Authorization header
 verify_jwt = false
+
+[functions.book-search]
+# Public JSON proxy for Open Library + Google Books
+verify_jwt = false
