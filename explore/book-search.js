@@ -117,6 +117,24 @@ export function mergeHits(list) {
   return [...map.values()];
 }
 
+export function interleaveSources(hits) {
+  const ol = [];
+  const gb = [];
+  const both = [];
+  for (const hit of hits) {
+    if (hit.source === 'google-books') gb.push(hit);
+    else if (hit.source === 'both') both.push(hit);
+    else ol.push(hit);
+  }
+  const out = [...both];
+  const n = Math.max(ol.length, gb.length);
+  for (let i = 0; i < n; i++) {
+    if (ol[i]) out.push(ol[i]);
+    if (gb[i]) out.push(gb[i]);
+  }
+  return out;
+}
+
 async function searchOpenLibraryDirect(q, limit) {
   const url = `https://openlibrary.org/search.json?q=${encodeURIComponent(q)}&limit=${limit}`;
   const res = await fetch(url, { headers: { Accept: 'application/json' } });
@@ -173,7 +191,7 @@ export async function searchBooks(rawQuery, opts = {}) {
     try {
       const ol = await searchOpenLibraryDirect(q, limit);
       payload = {
-        results: mergeHits(ol).slice(0, limit),
+        results: interleaveSources(mergeHits(ol)).slice(0, limit),
         errors: {
           googleBooks: 'Google Books is reached through the catalogue proxy once GOOGLE_BOOKS_API_KEY is set.',
         },

@@ -155,6 +155,25 @@ function mergeHits(list: SearchHit[]): SearchHit[] {
   return [...map.values()];
 }
 
+/** Alternate Open Library / Google Books so one API cannot bury the other. */
+function interleaveSources(hits: SearchHit[]): SearchHit[] {
+  const ol: SearchHit[] = [];
+  const gb: SearchHit[] = [];
+  const both: SearchHit[] = [];
+  for (const hit of hits) {
+    if (hit.source === 'google-books') gb.push(hit);
+    else if (hit.source === 'both') both.push(hit);
+    else ol.push(hit);
+  }
+  const out: SearchHit[] = [...both];
+  const n = Math.max(ol.length, gb.length);
+  for (let i = 0; i < n; i++) {
+    if (ol[i]) out.push(ol[i]);
+    if (gb[i]) out.push(gb[i]);
+  }
+  return out;
+}
+
 async function searchOpenLibrary(q: string, limit: number): Promise<SearchHit[]> {
   const url = `${OPEN_LIBRARY}?q=${encodeURIComponent(q)}&limit=${limit}`;
   const res = await fetch(url, {
@@ -235,7 +254,7 @@ Deno.serve(async (req) => {
   }
 
   return json({
-    results: mergeHits(hits).slice(0, limit),
+    results: interleaveSources(mergeHits(hits)).slice(0, limit),
     errors,
     query: q,
     googleConfigured: Boolean(googleKey),
