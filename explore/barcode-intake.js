@@ -22,6 +22,8 @@ const closePermissionBtn = document.getElementById('scanner-close-permission');
 const manualForm = document.getElementById('scanner-manual');
 const manualInput = document.getElementById('scanner-isbn-input');
 
+const CAMERA_GRANTED_KEY = 'trc-camera-granted';
+
 let scanner = null;
 let busy = false;
 let selectedCover = null;
@@ -29,7 +31,15 @@ let pendingBook = null;
 let lastLookup = null;
 let toastTimer = 0;
 let ignoreUntil = new Map();
-let askedCamera = false;
+
+function setCameraGranted(value) {
+  try {
+    if (value) localStorage.setItem(CAMERA_GRANTED_KEY, '1');
+    else localStorage.removeItem(CAMERA_GRANTED_KEY);
+  } catch {
+    /* ignore quota / private mode */
+  }
+}
 
 function escapeHtml(value) {
   return String(value ?? '')
@@ -401,12 +411,15 @@ async function startCamera() {
     });
   }
   try {
-    askedCamera = true;
     await scanner.start();
+    setCameraGranted(true);
     hidePermission();
     if (stage) stage.hidden = false;
     setLive('Looking for an ISBN…');
   } catch (err) {
+    if (err?.name === 'NotAllowedError' || err?.name === 'PermissionDeniedError') {
+      setCameraGranted(false);
+    }
     const info = cameraErrorCopy(err);
     showPermission(info);
     setLive('');
@@ -424,12 +437,8 @@ export async function startBarcodePanel() {
   } catch {
     cameraState = '';
   }
-  if (cameraState === 'granted') {
-    await startCamera();
-    return;
-  }
   if (cameraState === 'denied') {
-    askedCamera = true;
+    setCameraGranted(false);
     showPermission({
       title: 'Camera access blocked',
       copy: 'Scanning cannot work without camera access. Allow the camera for this site in your browser settings, or type the ISBN below.',
@@ -437,11 +446,7 @@ export async function startBarcodePanel() {
     });
     return;
   }
-  showPermission({
-    title: 'Camera access needed',
-    copy: 'Allow the camera so ISBN barcodes can be read from your books. The feed stays on this device — nothing is sent to an AI service.',
-    canRetry: true,
-  });
+  await startCamera();
 }
 
 export function stopBarcodePanel() {

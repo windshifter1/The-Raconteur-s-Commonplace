@@ -20,6 +20,8 @@ body {
   margin: 0;
   min-width: 320px;
   min-height: 100%;
+  background-color: #1a1210;
+  color-scheme: dark;
 }
 
 body {
@@ -497,9 +499,11 @@ body.intake-open {
 
 .search-icon {
   position: absolute;
-  left: 21px;
-  top: 50%;
-  transform: translateY(-50%);
+  left: 18px;
+  top: 6px;
+  width: 18px;
+  height: 50px;
+  transform: none;
   color: #dca460;
   pointer-events: none;
 }
@@ -719,11 +723,15 @@ body.intake-open {
 
 .scanner-shell {
   display: grid;
+  justify-items: center;
   gap: 12px;
 }
 
 .scanner-stage {
   position: relative;
+  justify-self: center;
+  width: min(100%, 22rem);
+  margin-inline: auto;
   overflow: hidden;
   aspect-ratio: 3 / 4;
   max-height: min(52dvh, 520px);
@@ -737,6 +745,7 @@ body.intake-open {
   width: 100%;
   height: 100%;
   object-fit: cover;
+  object-position: center;
   background: #120c0b;
 }
 
@@ -804,6 +813,13 @@ body.intake-open {
 .scanner-stage[hidden],
 .scanner-manual[hidden] {
   display: none !important;
+}
+
+.scanner-permission,
+.scanner-result,
+.scanner-manual {
+  width: 100%;
+  justify-self: stretch;
 }
 
 .scanner-permission,
@@ -999,6 +1015,11 @@ body.intake-open {
     height: 48px;
     padding-left: 40px;
     font-size: 16px;
+  }
+
+  .search-icon {
+    left: 16px;
+    height: 48px;
   }
 
   .dock-button {

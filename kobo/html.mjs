@@ -281,6 +281,11 @@ function shellStart(opts, title, active, showNav) {
   html +=
     '<meta name="viewport" content="width=device-width, initial-scale=1">\n';
   html += '<title>' + escapeHtml(title) + '</title>\n';
+  html += '<meta name="application-name" content="The Raconteur\'s Commonplace">\n';
+  html += '<meta name="apple-mobile-web-app-title" content="Commonplace">\n';
+  html += '<link rel="manifest" href="./manifest.webmanifest">\n';
+  html += '<link rel="icon" type="image/png" sizes="192x192" href="./icons/icon-192.png">\n';
+  html += '<link rel="apple-touch-icon" href="./icons/apple-touch-icon.png">\n';
   html += '<style type="text/css">' + css() + '</style>\n';
   html += '</head>\n<body>\n<div class="page">\n';
   html += siteHeader(opts);
@@ -294,7 +299,7 @@ function shellStart(opts, title, active, showNav) {
 }
 
 function shellEnd() {
-  return '</div>\n</body>\n</html>';
+  return '</div>\n<script type="module" src="./pwa.js"></script>\n</body>\n</html>';
 }
 
 function bookResultRows(books, actionBase, apiKey) {

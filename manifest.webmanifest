@@ -1,0 +1,32 @@
+{
+  "id": "/",
+  "name": "The Raconteur's Commonplace",
+  "short_name": "Commonplace",
+  "description": "A private archive of remembered places.",
+  "start_url": "./full/",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#1a1210",
+  "theme_color": "#1a1210",
+  "icons": [
+    {
+      "src": "./icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "./icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "./icons/icon-512-maskable.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ]
+}

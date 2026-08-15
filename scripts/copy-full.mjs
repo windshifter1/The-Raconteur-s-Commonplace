@@ -42,3 +42,18 @@ function copyExperience(name) {
 copyExperience('full');
 copyExperience('edit');
 copyExperience('explore');
+
+function copyPwa() {
+  for (const file of ['manifest.webmanifest', 'sw.js', 'pwa.js']) {
+    const src = join(root, file);
+    if (!existsSync(src)) continue;
+    cpSync(src, join(dist, file));
+  }
+  const icons = join(root, 'icons');
+  if (existsSync(icons)) {
+    cpSync(icons, join(dist, 'icons'), { recursive: true });
+  }
+  console.log('Wrote kobo-dist PWA manifest, icons, and service worker');
+}
+
+copyPwa();
