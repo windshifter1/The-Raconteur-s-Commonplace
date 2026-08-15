@@ -12,6 +12,7 @@ on:
 jobs:
   deploy:
     runs-on: ubuntu-latest
+    environment: github-pages
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -50,6 +51,36 @@ jobs:
           supabase functions deploy book-search \
             --project-ref joctuzargvajerqwxuvn \
             --no-verify-jwt
+
+      - name: Verify book-search + Google Books key
+        env:
+          VITE_SUPABASE_URL: ${{ vars.VITE_SUPABASE_URL || secrets.VITE_SUPABASE_URL }}
+          VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
+          GOOGLE_BOOKS_API_KEY: ${{ secrets.GOOGLE_BOOKS_API_KEY }}
+        run: |
+          if [ -z "$VITE_SUPABASE_URL" ] || [ -z "$VITE_SUPABASE_ANON_KEY" ]; then
+            echo "::warning::Skipping book-search verify — missing Supabase URL/key vars."
+            exit 0
+          fi
+          url="${VITE_SUPABASE_URL%/}/functions/v1/book-search?q=harry%20potter&limit=2"
+          echo "Probing GET $url"
+          body=$(curl -sS -w "\nHTTP:%{http_code}" \
+            -H "apikey: ${VITE_SUPABASE_ANON_KEY}" \
+            -H "Authorization: Bearer ${VITE_SUPABASE_ANON_KEY}" \
+            -H "Accept: application/json" \
+            "$url")
+          echo "$body" | tail -c 400
+          echo "$body" | grep -q 'HTTP:200' || { echo "::error::book-search did not return 200."; exit 1; }
+          echo "$body" | grep -q '"results"' || { echo "::error::book-search JSON missing results."; exit 1; }
+          if [ -n "$GOOGLE_BOOKS_API_KEY" ]; then
+            echo "$body" | grep -q '"googleConfigured":true' || {
+              echo "::error::GOOGLE_BOOKS_API_KEY is in GitHub secrets but the Edge Function still reports it missing."
+              exit 1
+            }
+            echo "Google Books key is live on book-search."
+          else
+            echo "GOOGLE_BOOKS_API_KEY still empty in this job's secrets — Open Library only."
+          fi
 
       - name: Verify function responds
         env:

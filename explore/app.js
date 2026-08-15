@@ -72,7 +72,9 @@ function setMethod(name) {
   overlay?.querySelectorAll('[data-intake-panel]').forEach((panel) => {
     panel.hidden = panel.dataset.intakePanel !== name;
   });
-  if (name === 'search') inputEl?.focus();
+  if (name === 'search' && window.matchMedia('(min-width: 700px)').matches) {
+    inputEl?.focus();
+  }
 }
 
 function openIntake() {
@@ -80,7 +82,6 @@ function openIntake() {
   overlay.hidden = false;
   document.body.classList.add('intake-open');
   setMethod('search');
-  inputEl?.focus();
 }
 
 function closeIntake() {
@@ -88,6 +89,7 @@ function closeIntake() {
   overlay.hidden = true;
   document.body.classList.remove('intake-open');
   hideSuggest();
+  inputEl?.blur();
 }
 
 function renderSkeletons(count = 4) {
@@ -231,14 +233,28 @@ overlay?.querySelectorAll('[data-intake-method]').forEach((btn) => {
   btn.addEventListener('click', () => setMethod(btn.dataset.intakeMethod));
 });
 
-searchBtn?.addEventListener('click', () => runFullSearch());
+const formEl = document.getElementById('intake-form');
+formEl?.addEventListener('submit', (e) => {
+  e.preventDefault();
+  hideSuggest();
+  runFullSearch();
+});
+searchBtn?.addEventListener('click', (e) => {
+  e.preventDefault();
+  hideSuggest();
+  runFullSearch();
+});
 inputEl?.addEventListener('keydown', (e) => {
   if (e.key === 'Enter') {
     e.preventDefault();
+    hideSuggest();
     runFullSearch();
   }
 });
 inputEl?.addEventListener('input', onTyped);
+inputEl?.addEventListener('search', () => {
+  if (!String(inputEl.value || '').trim()) hideSuggest();
+});
 
 window.getSelectedIntakeBook = () => selectedBook;
 window.getLastIntakeQuery = () => lastFullQuery;

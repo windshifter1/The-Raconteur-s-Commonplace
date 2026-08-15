@@ -41,6 +41,8 @@ jobs:
         env:
           GOOGLE_BOOKS_API_KEY: ${{ secrets.GOOGLE_BOOKS_API_KEY }}
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          VITE_SUPABASE_URL: ${{ vars.VITE_SUPABASE_URL || secrets.VITE_SUPABASE_URL }}
+          VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
         run: |
           if [ -z "$GOOGLE_BOOKS_API_KEY" ]; then
             echo "GOOGLE_BOOKS_API_KEY is not set yet — Open Library search still works."
@@ -52,6 +54,16 @@ jobs:
           fi
           npx --yes supabase secrets set GOOGLE_BOOKS_API_KEY="$GOOGLE_BOOKS_API_KEY" --project-ref joctuzargvajerqwxuvn
           npx --yes supabase functions deploy book-search --project-ref joctuzargvajerqwxuvn --no-verify-jwt
+          url="$VITE_SUPABASE_URL"
+          key="$VITE_SUPABASE_ANON_KEY"
+          body=$(curl -sS -H "apikey: $key" -H "Authorization: Bearer $key" -H "Accept: application/json" \
+            "${url%/}/functions/v1/book-search?q=test&limit=1")
+          echo "$body" | head -c 300
+          echo
+          echo "$body" | grep -q '"googleConfigured":true' || {
+            echo "::error::GOOGLE_BOOKS_API_KEY was set but book-search still reports googleConfigured=false."
+            exit 1
+          }
 
       - name: Build catalogue + Full Experience
         env:

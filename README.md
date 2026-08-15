@@ -25,7 +25,7 @@ Interactive Find / Browse / Book views POST to a Supabase Edge Function (Supabas
 
 `.github/workflows/deploy-pages.yml`  
 Secrets/vars: `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`  
-Optional: `GOOGLE_BOOKS_API_KEY` — provisioned onto the `book-search` Edge Function (never written into frontend source). Open Library search works without it.
+Optional: `GOOGLE_BOOKS_API_KEY` — must be that exact name in **Actions secrets** (repository secret, or the `github-pages` environment). Deploy copies it onto the `book-search` Edge Function; it is never written into frontend source. Open Library search works without it.
 
 ### Edge Function
 

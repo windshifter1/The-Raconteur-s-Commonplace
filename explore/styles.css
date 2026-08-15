@@ -343,8 +343,9 @@ body.intake-open {
   z-index: 40;
   display: grid;
   place-items: center;
-  padding: clamp(12px, 4vw, 32px);
+  padding: max(12px, env(safe-area-inset-top)) max(12px, env(safe-area-inset-right)) max(12px, env(safe-area-inset-bottom)) max(12px, env(safe-area-inset-left));
   background: rgba(16, 11, 10, 0.72);
+  -webkit-overflow-scrolling: touch;
 }
 
 .intake-overlay[hidden] {
@@ -359,6 +360,15 @@ body.intake-open {
   background: rgba(35, 27, 28, 0.96);
   border: 2px solid rgba(215, 157, 87, 0.56);
   box-shadow: 0 11px 0 rgba(25, 18, 21, 0.46), 0 18px 42px rgba(11, 16, 19, 0.36);
+}
+
+.intake-method,
+.dock-button,
+.search-results-close,
+.ghost-cta,
+.intake-card,
+.intake-suggest-item {
+  touch-action: manipulation;
 }
 
 .intake-copy {
@@ -532,6 +542,11 @@ body.intake-open {
   font: 400 18px / 1.25 var(--font-display);
 }
 
+.search-result-title .source-tag {
+  display: inline-flex;
+  margin: 0 6px 4px 0;
+}
+
 .search-result-author {
   display: block;
   margin: 4px 0 0;
@@ -674,10 +689,20 @@ body.intake-open {
   width: 40%;
 }
 
-@media (max-width: 640px) {
+@media (max-width: 700px) {
+  .intake-overlay {
+    place-items: stretch;
+    padding: 0;
+  }
+
   .intake-window {
-    max-height: 94dvh;
-    padding: 12px;
+    width: 100%;
+    max-width: none;
+    max-height: 100dvh;
+    min-height: 100dvh;
+    padding: max(14px, env(safe-area-inset-top)) max(12px, env(safe-area-inset-right)) max(16px, env(safe-area-inset-bottom)) max(12px, env(safe-area-inset-left));
+    border-width: 0;
+    box-shadow: none;
   }
 
   .search-dock {
@@ -685,25 +710,39 @@ body.intake-open {
   }
 
   .search-dock input {
-    height: 44px;
-    padding-left: 38px;
-    font-size: 11px;
+    height: 48px;
+    padding-left: 40px;
+    font-size: 16px;
   }
 
   .dock-button {
     flex: 1 1 100%;
-    min-height: 42px;
+    min-height: 44px;
   }
 
   .intake-suggest-busy {
     right: 16px;
-    top: 18px;
+    top: 16px;
     transform: none;
+  }
+
+  .search-dock > .intake-suggest {
+    max-height: 40dvh;
+    overflow: auto;
   }
 
   .intake-cover {
     flex-basis: 56px;
     width: 56px;
     height: 84px;
+  }
+
+  .intake-method {
+    min-height: 44px;
+    flex: 1 1 auto;
+  }
+
+  .source-tag {
+    margin-left: 0;
   }
 }
