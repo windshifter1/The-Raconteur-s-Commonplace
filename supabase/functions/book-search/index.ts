@@ -2,8 +2,6 @@
  * Dual-API book search proxy.
  * Keeps GOOGLE_BOOKS_API_KEY on the server. Open Library needs no key.
  */
-const APP_UA =
-  'TheRaconteursCommonplace/0.5 (https://github.com/windshifter1/The-Raconteur-s-Commonplace; catalogue search)';
 const OPEN_LIBRARY = 'https://openlibrary.org/search.json';
 const GOOGLE_BOOKS = 'https://www.googleapis.com/books/v1/volumes';
 
@@ -176,8 +174,14 @@ function interleaveSources(hits: SearchHit[]): SearchHit[] {
 
 async function searchOpenLibrary(q: string, limit: number): Promise<SearchHit[]> {
   const url = `${OPEN_LIBRARY}?q=${encodeURIComponent(q)}&limit=${limit}`;
+  const email = (Deno.env.get('OPEN_LIBRARY_CONTACT_EMAIL') || 'yusuf@ilhaam.com').trim();
+  const ua = `The Raconteurs Commonplace/1.0 (contact: ${email})`;
   const res = await fetch(url, {
-    headers: { accept: 'application/json', 'user-agent': APP_UA },
+    headers: {
+      Accept: 'application/json',
+      'User-Agent': ua,
+      From: email,
+    },
   });
   if (!res.ok) throw new Error(`Open Library request failed (${res.status}).`);
   const data = await res.json();

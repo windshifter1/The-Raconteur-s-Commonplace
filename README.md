@@ -27,6 +27,8 @@ Interactive Find / Browse / Book views POST to a Supabase Edge Function (Supabas
 Secrets/vars: `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`  
 Optional: `GOOGLE_BOOKS_API_KEY` — must be that exact name in **Actions secrets** (repository secret, or the `github-pages` environment). Deploy copies it onto the `book-search` Edge Function; it is never written into frontend source. Open Library search works without it.
 
+Optional: `OPEN_LIBRARY_CONTACT_EMAIL` — same secret locations. Deploy copies it onto `book-search` so Open Library requests send `User-Agent: The Raconteurs Commonplace/1.0 (contact: YOUR_EMAIL)`. If the secret is unset, the function still identifies as `yusuf@ilhaam.com`.
+
 ### Edge Function
 
 Secret: `SUPABASE_ACCESS_TOKEN`  

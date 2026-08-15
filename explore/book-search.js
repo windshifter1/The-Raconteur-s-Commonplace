@@ -1,7 +1,7 @@
 /**
  * Dual-API book search for Add Books.
  * Google Books is proxied through the Edge Function so GOOGLE_BOOKS_API_KEY never ships to the client.
- * Open Library is queried here as a fallback if the proxy is unavailable.
+ * Open Library is also queried only on the proxy so the request can send a contact User-Agent.
  */
 import config from './config.js';
 
@@ -135,15 +135,6 @@ export function interleaveSources(hits) {
   return out;
 }
 
-async function searchOpenLibraryDirect(q, limit) {
-  const url = `https://openlibrary.org/search.json?q=${encodeURIComponent(q)}&limit=${limit}`;
-  const res = await fetch(url, { headers: { Accept: 'application/json' } });
-  if (!res.ok) throw new Error(`Open Library request failed (${res.status}).`);
-  const data = await res.json();
-  const docs = Array.isArray(data?.docs) ? data.docs : [];
-  return docs.map(fromOpenLibrary).filter(Boolean);
-}
-
 async function searchViaProxy(q, limit) {
   const url = config.bookSearchUrl;
   const key = config.supabaseAnonKey;
@@ -188,25 +179,14 @@ export async function searchBooks(rawQuery, opts = {}) {
   try {
     payload = await searchViaProxy(q, limit);
   } catch (err) {
-    try {
-      const ol = await searchOpenLibraryDirect(q, limit);
-      payload = {
-        results: interleaveSources(mergeHits(ol)).slice(0, limit),
-        errors: {
-          googleBooks: 'Google Books is reached through the catalogue proxy once GOOGLE_BOOKS_API_KEY is set.',
-        },
-        googleConfigured: false,
-      };
-    } catch (olErr) {
-      payload = {
-        results: [],
-        errors: {
-          openLibrary: olErr?.message || 'Open Library is unavailable.',
-          googleBooks: err?.message || 'Google Books is unavailable.',
-        },
-        googleConfigured: false,
-      };
-    }
+    payload = {
+      results: [],
+      errors: {
+        openLibrary: err?.message || 'Open Library is unavailable.',
+        googleBooks: err?.message || 'Google Books is unavailable.',
+      },
+      googleConfigured: false,
+    };
   }
 
   const results = Array.isArray(payload.results) ? payload.results : [];
