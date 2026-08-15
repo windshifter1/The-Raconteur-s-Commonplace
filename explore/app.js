@@ -1,4 +1,5 @@
 import { debounce, searchBooks } from './book-search.js';
+import { startBarcodePanel, stopBarcodePanel } from './barcode-intake.js';
 
 const overlay = document.getElementById('intake-overlay');
 const openBtn = document.getElementById('btn-open-intake');
@@ -72,6 +73,8 @@ function setMethod(name) {
   overlay?.querySelectorAll('[data-intake-panel]').forEach((panel) => {
     panel.hidden = panel.dataset.intakePanel !== name;
   });
+  if (name === 'barcode') startBarcodePanel();
+  else stopBarcodePanel();
   if (name === 'search' && window.matchMedia('(min-width: 700px)').matches) {
     inputEl?.focus();
   }
@@ -90,6 +93,7 @@ function closeIntake() {
   document.body.classList.remove('intake-open');
   hideSuggest();
   inputEl?.blur();
+  stopBarcodePanel();
 }
 
 function renderSkeletons(count = 4) {

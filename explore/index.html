@@ -127,10 +127,33 @@
           <div class="intake-selected" id="intake-selected" hidden></div>
         </div>
 
-        <div class="intake-placeholder" data-intake-panel="barcode" hidden>
-          <p class="tile-kicker">Coming later</p>
-          <h2>Barcode scanner</h2>
-          <p>Point-and-scan intake for ISBNs. Camera access and decoding are not enabled yet — this is a placeholder only.</p>
+        <div data-intake-panel="barcode" hidden>
+          <p class="lede intake-copy">Point the camera at an ISBN barcode. Keep the code inside the frame — the scanner stays ready so you can work through a stack.</p>
+          <div class="scanner-shell" id="scanner-shell">
+            <div class="scanner-stage" id="scanner-stage">
+              <video id="scanner-video" muted playsinline autoplay></video>
+              <div class="scanner-guide" aria-hidden="true"></div>
+              <p class="scanner-live" id="scanner-live">Looking for an ISBN…</p>
+              <p class="scanner-toast" id="scanner-toast" hidden></p>
+            </div>
+            <div class="scanner-permission" id="scanner-permission" hidden>
+              <p class="tile-kicker">Camera</p>
+              <h2 id="scanner-permission-title">Camera access needed</h2>
+              <p id="scanner-permission-copy">Allow the camera so ISBN barcodes can be read from your books.</p>
+              <div class="scanner-actions">
+                <button type="button" class="solid-cta" id="scanner-request-camera">Allow camera</button>
+                <button type="button" class="ghost-cta" id="scanner-close-permission">Close scanner</button>
+              </div>
+            </div>
+            <div class="scanner-result" id="scanner-result" hidden></div>
+            <form class="scanner-manual" id="scanner-manual" action="#" method="get">
+              <label class="tile-kicker" for="scanner-isbn-input">Or type an ISBN</label>
+              <div class="search-dock">
+                <input type="text" id="scanner-isbn-input" name="isbn" inputmode="numeric" autocomplete="off" spellcheck="false" placeholder="978…" />
+                <button type="submit" class="dock-button">Look up</button>
+              </div>
+            </form>
+          </div>
         </div>
 
         <div class="intake-placeholder" data-intake-panel="cover" hidden>

@@ -32,6 +32,7 @@ function copyExperience(name) {
     if (file === 'node_modules' || file === 'dist' || file.startsWith('.')) continue;
     if (file === 'package.json' || file === 'package-lock.json') continue;
     if (file.endsWith('.ts') || file.endsWith('.tsx') || file.endsWith('.tsbuildinfo')) continue;
+    if (file.endsWith('.test.js') || file.endsWith('.test.mjs')) continue;
     cpSync(join(src, file), join(out, file), { recursive: true });
   }
 

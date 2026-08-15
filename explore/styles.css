@@ -413,8 +413,10 @@ body.intake-open {
 .dock-button,
 .search-results-close,
 .ghost-cta,
+.solid-cta,
 .intake-card,
-.intake-suggest-item {
+.intake-suggest-item,
+.cover-carousel-item {
   touch-action: manipulation;
 }
 
@@ -715,6 +717,212 @@ body.intake-open {
   font: 14px / 1.5 var(--font-body);
 }
 
+.scanner-shell {
+  display: grid;
+  gap: 12px;
+}
+
+.scanner-stage {
+  position: relative;
+  overflow: hidden;
+  aspect-ratio: 3 / 4;
+  max-height: min(52dvh, 520px);
+  background: #120c0b;
+  border: 2px solid rgba(215, 157, 87, 0.5);
+  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.25);
+}
+
+.scanner-stage video {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  background: #120c0b;
+}
+
+.scanner-guide {
+  position: absolute;
+  inset: 16% 12%;
+  pointer-events: none;
+  border: 2px solid rgba(228, 165, 87, 0.28);
+  box-shadow: 0 0 0 999px rgba(16, 11, 10, 0.38);
+}
+
+.scanner-guide::before,
+.scanner-guide::after {
+  content: '';
+  position: absolute;
+  width: 28px;
+  height: 28px;
+  border: 3px solid #e4a557;
+}
+
+.scanner-guide::before {
+  top: -3px;
+  left: -3px;
+  border-right: 0;
+  border-bottom: 0;
+}
+
+.scanner-guide::after {
+  right: -3px;
+  bottom: -3px;
+  border-left: 0;
+  border-top: 0;
+}
+
+.scanner-live,
+.scanner-toast {
+  position: absolute;
+  left: 10px;
+  right: 10px;
+  margin: 0;
+  padding: 6px 8px;
+  text-align: center;
+  color: #f2d7a2;
+  background: rgba(26, 18, 16, 0.82);
+  border: 2px solid rgba(215, 157, 87, 0.45);
+  font: 700 9px var(--font-pixel);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.scanner-live {
+  bottom: 10px;
+}
+
+.scanner-toast {
+  top: 10px;
+  bottom: auto;
+  color: var(--ink);
+  background: #d89e59;
+}
+
+.scanner-toast[hidden],
+.scanner-permission[hidden],
+.scanner-result[hidden],
+.scanner-stage[hidden],
+.scanner-manual[hidden] {
+  display: none !important;
+}
+
+.scanner-permission,
+.scanner-result {
+  padding: 12px;
+  background: rgba(35, 27, 28, 0.96);
+  border: 2px solid rgba(215, 157, 87, 0.56);
+  box-shadow: 0 11px 0 rgba(25, 18, 21, 0.46);
+}
+
+.scanner-permission h2,
+.scanner-result h2,
+.scanner-title {
+  margin: 0 0 6px;
+  color: var(--gold);
+  font: 400 28px / 1.05 var(--font-display);
+}
+
+.scanner-result--duplicate {
+  border-color: rgba(189, 98, 86, 0.75);
+  box-shadow: 0 11px 0 rgba(80, 28, 28, 0.35);
+}
+
+.scanner-result--error {
+  border-color: rgba(215, 157, 87, 0.35);
+}
+
+.scanner-hero {
+  margin: 10px 0 14px;
+}
+
+.scanner-hero-cover {
+  display: grid;
+  place-items: center;
+  margin: 12px 0;
+}
+
+.scanner-cover {
+  flex-basis: 120px;
+  width: 120px;
+  height: 180px;
+}
+
+.cover-carousel {
+  display: flex;
+  gap: 8px;
+  margin: 0 0 12px;
+  padding: 4px 2px 8px;
+  overflow-x: auto;
+  scroll-snap-type: x mandatory;
+  -webkit-overflow-scrolling: touch;
+}
+
+.cover-carousel-item {
+  flex: 0 0 auto;
+  padding: 4px;
+  scroll-snap-align: start;
+  color: inherit;
+  background: rgba(48, 35, 33, 0.72);
+  border: 2px solid rgba(215, 157, 87, 0.28);
+  cursor: pointer;
+}
+
+.cover-carousel-item[aria-pressed='true'] {
+  border-color: #d89e59;
+  box-shadow: 3px 3px 0 rgba(25, 18, 21, 0.45);
+}
+
+.scanner-cover-thumb {
+  display: block;
+  width: 56px;
+  height: 84px;
+  object-fit: cover;
+  background:
+    repeating-linear-gradient(
+      90deg,
+      #bd6256 0 8px,
+      #597e9d 8px 16px,
+      #ce9551 16px 24px,
+      #67886d 24px 32px
+    );
+}
+
+.scanner-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 14px;
+}
+
+.scanner-actions .solid-cta,
+.scanner-actions .ghost-cta,
+.scanner-next {
+  flex: 1 1 140px;
+  min-height: 52px;
+  margin-top: 0;
+}
+
+.scanner-manual .tile-kicker {
+  display: block;
+  margin-bottom: 8px;
+}
+
+.scanner-manual .search-dock {
+  width: 100%;
+}
+
+.scanner-manual input {
+  min-width: 0;
+  flex: 1;
+  height: 50px;
+  padding: 0 12px;
+  color: #f4dfb0;
+  background: transparent;
+  border: 0;
+  outline: 0;
+  font: 13px var(--font-pixel);
+}
+
 .is-skeleton {
   pointer-events: none;
   min-height: 128px;
@@ -836,5 +1044,21 @@ body.intake-open {
 
   .source-tag {
     margin-left: 0;
+  }
+
+  .scanner-stage {
+    max-height: 42dvh;
+  }
+
+  .scanner-manual input,
+  .scanner-manual .search-dock input {
+    font-size: 16px;
+    height: 48px;
+  }
+
+  .scanner-cover {
+    width: 96px;
+    height: 144px;
+    flex-basis: 96px;
   }
 }
