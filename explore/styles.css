@@ -22,6 +22,8 @@ body {
   min-height: 100%;
   background-color: #1a1210;
   color-scheme: dark;
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
 }
 
 body {
@@ -40,6 +42,14 @@ a {
 button,
 input {
   font: inherit;
+  -webkit-tap-highlight-color: rgba(232, 164, 87, 0.28);
+}
+
+input[type='search'],
+input[type='text'],
+input[type='email'],
+textarea {
+  font-size: 16px;
 }
 
 .explore-page {
@@ -264,7 +274,7 @@ input {
   background: transparent;
   border: 0;
   outline: 0;
-  font: 12px var(--font-pixel);
+  font: 16px / 1.2 var(--font-pixel);
 }
 
 .mock-search button {
@@ -434,7 +444,7 @@ body.intake-open {
 }
 
 .intake-method {
-  min-height: 36px;
+  min-height: 44px;
   padding: 0 12px;
   color: var(--gold);
   background: rgba(48, 35, 33, 0.72);
@@ -475,10 +485,12 @@ body.intake-open {
 
 .search-dock > .intake-suggest {
   position: absolute;
-  z-index: 3;
+  z-index: 5;
   right: 6px;
   left: 6px;
-  top: calc(100% - 2px);
+  top: calc(100% + 4px);
+  max-height: min(40vh, 320px);
+  overflow: auto;
 }
 
 .search-dock input {
@@ -490,7 +502,7 @@ body.intake-open {
   background: transparent;
   border: 0;
   outline: 0;
-  font: 13px var(--font-pixel);
+  font: 16px / 1.2 var(--font-pixel);
 }
 
 .search-dock input::placeholder {
@@ -693,8 +705,11 @@ body.intake-open {
 .intake-suggest-busy {
   position: absolute;
   right: 128px;
-  top: 50%;
-  transform: translateY(-50%);
+  top: 6px;
+  height: 50px;
+  display: inline-flex;
+  align-items: center;
+  transform: none;
   color: rgba(236, 200, 139, 0.78);
   font: 700 8px var(--font-pixel);
   letter-spacing: 0.12em;
@@ -936,7 +951,7 @@ body.intake-open {
   background: transparent;
   border: 0;
   outline: 0;
-  font: 13px var(--font-pixel);
+  font: 16px / 1.2 var(--font-pixel);
 }
 
 .is-skeleton {
@@ -969,11 +984,15 @@ body.intake-open {
   .intake-window {
     width: 100%;
     max-width: none;
-    height: 100dvh;
+    height: 100%;
     max-height: 100dvh;
     min-height: 0;
     box-sizing: border-box;
-    padding: max(14px, env(safe-area-inset-top)) max(14px, env(safe-area-inset-right)) max(16px, env(safe-area-inset-bottom)) max(14px, env(safe-area-inset-left));
+    padding:
+      max(14px, env(safe-area-inset-top))
+      max(14px, env(safe-area-inset-right))
+      calc(max(16px, env(safe-area-inset-bottom)) + var(--keyboard-inset, 0px))
+      max(14px, env(safe-area-inset-left));
     border-width: 0;
     box-shadow: none;
   }
@@ -1005,13 +1024,13 @@ body.intake-open {
   }
 
   .search-dock {
-    flex-wrap: wrap;
     width: 100%;
+    flex-wrap: nowrap;
   }
 
   .search-dock input {
-    flex: 1 1 100%;
-    width: 100%;
+    flex: 1 1 auto;
+    width: auto;
     height: 48px;
     padding-left: 40px;
     font-size: 16px;
@@ -1023,19 +1042,22 @@ body.intake-open {
   }
 
   .dock-button {
-    flex: 1 1 100%;
-    min-height: 44px;
-    min-width: 0;
+    flex: 0 0 auto;
+    min-width: 88px;
+    min-height: 48px;
+    padding: 0 12px;
   }
 
   .intake-suggest-busy {
-    right: 14px;
-    top: 14px;
+    right: 96px;
+    top: 6px;
+    height: 48px;
     transform: none;
   }
 
   .search-dock > .intake-suggest {
-    max-height: 40dvh;
+    top: calc(100% + 4px);
+    max-height: min(36dvh, 280px);
     overflow: auto;
   }
 

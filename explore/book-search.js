@@ -5,8 +5,9 @@
  */
 import config from './config.js';
 
-const DEBOUNCE_MS = 300;
+const DEBOUNCE_MS = 120;
 const CACHE_TTL_MS = 5 * 60 * 1000;
+const FETCH_LIMIT = 24;
 const APP_UA_NOTE = 'The Raconteur’s Commonplace catalogue';
 
 /** @typedef {{
@@ -26,14 +27,67 @@ const cache = new Map();
 
 export function debounce(fn, wait = DEBOUNCE_MS) {
   let timer = 0;
-  return (...args) => {
+  const wrapped = (...args) => {
     window.clearTimeout(timer);
     timer = window.setTimeout(() => fn(...args), wait);
   };
+  wrapped.cancel = () => {
+    window.clearTimeout(timer);
+    timer = 0;
+  };
+  return wrapped;
 }
 
-function cacheKey(q, limit) {
-  return `${q.toLowerCase().trim()}::${limit}`;
+function cacheKey(q) {
+  return q.toLowerCase().trim();
+}
+
+function hitMatchesQuery(hit, q) {
+  const n = q.toLowerCase().trim();
+  if (!n) return true;
+  const hay = [
+    hit.title,
+    ...(hit.authors || []),
+    hit.publisher || '',
+    hit.isbn || '',
+  ]
+    .join(' ')
+    .toLowerCase();
+  return hay.includes(n);
+}
+
+function liveCacheEntry(rawQuery) {
+  const key = cacheKey(String(rawQuery || ''));
+  const exact = cache.get(key);
+  if (exact && Date.now() - exact.at < CACHE_TTL_MS) return exact;
+  return null;
+}
+
+/** Exact cached results for this query, or null if we still need a network fetch. */
+export function peekCachedResults(rawQuery) {
+  const q = String(rawQuery || '').trim();
+  if (q.length < 2) return null;
+  const exact = liveCacheEntry(q);
+  return exact ? exact.value.results : null;
+}
+
+/** Instant hits from earlier searches while a fresh request is in flight. */
+export function peekLocalHits(rawQuery) {
+  const q = String(rawQuery || '').trim();
+  if (q.length < 2) return [];
+  const exact = liveCacheEntry(q);
+  if (exact) {
+    return exact.value.results;
+  }
+  const key = cacheKey(q);
+  let best = [];
+  for (const [k, entry] of cache) {
+    if (Date.now() - entry.at >= CACHE_TTL_MS) continue;
+    if (!key.startsWith(k) && !k.startsWith(key)) continue;
+    const filtered = (entry.value.results || []).filter((hit) => hitMatchesQuery(hit, q));
+    if (filtered.length > best.length) best = filtered;
+  }
+  return best;
 }
 
 function yearFrom(value) {
@@ -135,11 +189,12 @@ export function interleaveSources(hits) {
   return out;
 }
 
-async function searchViaProxy(q, limit) {
+async function searchViaProxy(q, limit, signal) {
   const url = config.bookSearchUrl;
   const key = config.supabaseAnonKey;
   if (!url || !key) throw new Error('Book search proxy is not configured.');
   const res = await fetch(`${url}?q=${encodeURIComponent(q)}&limit=${limit}`, {
+    signal,
     headers: {
       apikey: key,
       Authorization: `Bearer ${key}`,
@@ -159,8 +214,7 @@ async function searchViaProxy(q, limit) {
 
 /**
  * @param {string} rawQuery
- * @param {{ limit?: number }} [opts]
- * @returns {Promise<{ results: BookSearchHit[], errors: Record<string,string>, empty: boolean, bothFailed: boolean }>}
+ * @param {{ limit?: number, signal?: AbortSignal }} [opts]
  */
 export async function searchBooks(rawQuery, opts = {}) {
   const q = String(rawQuery || '').trim();
@@ -169,16 +223,22 @@ export async function searchBooks(rawQuery, opts = {}) {
     return { results: [], errors: {}, empty: true, bothFailed: false };
   }
 
-  const key = cacheKey(q, limit);
+  const key = cacheKey(q);
   const cached = cache.get(key);
   if (cached && Date.now() - cached.at < CACHE_TTL_MS) {
-    return cached.value;
+    return {
+      ...cached.value,
+      results: cached.value.results.slice(0, limit),
+    };
   }
 
   let payload;
   try {
-    payload = await searchViaProxy(q, limit);
+    payload = await searchViaProxy(q, FETCH_LIMIT, opts.signal);
   } catch (err) {
+    if (err?.name === 'AbortError') {
+      return { results: [], errors: {}, empty: false, bothFailed: false, aborted: true };
+    }
     payload = {
       results: [],
       errors: {
@@ -187,6 +247,10 @@ export async function searchBooks(rawQuery, opts = {}) {
       },
       googleConfigured: false,
     };
+  }
+
+  if (opts.signal?.aborted) {
+    return { results: [], errors: {}, empty: false, bothFailed: false, aborted: true };
   }
 
   const results = Array.isArray(payload.results) ? payload.results : [];
@@ -201,5 +265,5 @@ export async function searchBooks(rawQuery, opts = {}) {
     note: APP_UA_NOTE,
   };
   cache.set(key, { at: Date.now(), value });
-  return value;
+  return { ...value, results: results.slice(0, limit) };
 }

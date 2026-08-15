@@ -1,4 +1,4 @@
-import { debounce, searchBooks } from './book-search.js';
+import { debounce, peekCachedResults, peekLocalHits, searchBooks } from './book-search.js';
 import { startBarcodePanel, stopBarcodePanel } from './barcode-intake.js';
 
 const overlay = document.getElementById('intake-overlay');
@@ -17,6 +17,9 @@ let selectedBook = null;
 let lastFullQuery = '';
 let suggestSeq = 0;
 let fullSeq = 0;
+let suggestSuppressed = false;
+/** @type {AbortController | null} */
+let suggestAbort = null;
 
 function escapeHtml(value) {
   return String(value ?? '')
@@ -64,9 +67,21 @@ function hideSuggest() {
   if (!suggestEl) return;
   suggestEl.hidden = true;
   suggestEl.innerHTML = '';
+  if (suggestBusy) suggestBusy.hidden = true;
+}
+
+const onTyped = debounce(() => runSuggest(inputEl?.value), 80);
+
+function suppressSuggest() {
+  suggestSuppressed = true;
+  onTyped.cancel();
+  suggestAbort?.abort();
+  suggestSeq += 1;
+  hideSuggest();
 }
 
 function setMethod(name) {
+  if (name !== 'search') suppressSuggest();
   overlay?.querySelectorAll('[data-intake-method]').forEach((btn) => {
     btn.setAttribute('aria-pressed', String(btn.dataset.intakeMethod === name));
   });
@@ -146,7 +161,7 @@ function renderResults(hits, { empty, bothFailed, errors }) {
 }
 
 function renderSuggest(hits) {
-  if (!suggestEl) return;
+  if (!suggestEl || suggestSuppressed) return;
   if (!hits.length) {
     hideSuggest();
     return;
@@ -166,7 +181,7 @@ function renderSuggest(hits) {
     btn.addEventListener('click', () => {
       const hit = hits[Number(btn.dataset.suggestIndex)];
       if (inputEl) inputEl.value = hit.title;
-      hideSuggest();
+      suppressSuggest();
       selectHit(hit);
       runFullSearch(hit.title);
     });
@@ -198,7 +213,7 @@ async function runFullSearch(raw) {
     return;
   }
   lastFullQuery = q;
-  hideSuggest();
+  suppressSuggest();
   const seq = ++fullSeq;
   setStatus('Searching Open Library and Google Books…');
   renderSkeletons();
@@ -208,21 +223,45 @@ async function runFullSearch(raw) {
 }
 
 async function runSuggest(raw) {
+  if (suggestSuppressed) return;
   const q = String(raw ?? '').trim();
   if (q.length < 2) {
     hideSuggest();
-    if (suggestBusy) suggestBusy.hidden = true;
     return;
   }
   const seq = ++suggestSeq;
-  if (suggestBusy) suggestBusy.hidden = false;
-  const out = await searchBooks(q, { limit: 8 });
-  if (seq !== suggestSeq) return;
+  suggestAbort?.abort();
+  suggestAbort = new AbortController();
+  const out = await searchBooks(q, { limit: 8, signal: suggestAbort.signal });
+  if (seq !== suggestSeq || suggestSuppressed || out.aborted) return;
   if (suggestBusy) suggestBusy.hidden = true;
   if (q === String(inputEl?.value || '').trim()) renderSuggest(out.results);
 }
 
-const onTyped = debounce(() => runSuggest(inputEl?.value), 300);
+function onIntakeInput() {
+  suggestSuppressed = false;
+  const q = String(inputEl?.value || '').trim();
+  if (q.length < 2) {
+    onTyped.cancel();
+    hideSuggest();
+    return;
+  }
+  const cached = peekCachedResults(q);
+  if (cached !== null) {
+    onTyped.cancel();
+    if (suggestBusy) suggestBusy.hidden = true;
+    renderSuggest(cached.slice(0, 8));
+    return;
+  }
+  const local = peekLocalHits(q).slice(0, 8);
+  if (local.length) {
+    renderSuggest(local);
+    if (suggestBusy) suggestBusy.hidden = true;
+  } else if (suggestBusy) {
+    suggestBusy.hidden = false;
+  }
+  onTyped();
+}
 
 openBtn?.addEventListener('click', openIntake);
 closeBtn?.addEventListener('click', closeIntake);
@@ -240,24 +279,28 @@ overlay?.querySelectorAll('[data-intake-method]').forEach((btn) => {
 const formEl = document.getElementById('intake-form');
 formEl?.addEventListener('submit', (e) => {
   e.preventDefault();
-  hideSuggest();
+  suppressSuggest();
   runFullSearch();
 });
 searchBtn?.addEventListener('click', (e) => {
   e.preventDefault();
-  hideSuggest();
+  suppressSuggest();
   runFullSearch();
 });
 inputEl?.addEventListener('keydown', (e) => {
   if (e.key === 'Enter') {
     e.preventDefault();
-    hideSuggest();
+    suppressSuggest();
     runFullSearch();
   }
+  if (e.key === 'Escape') suppressSuggest();
 });
-inputEl?.addEventListener('input', onTyped);
+inputEl?.addEventListener('input', onIntakeInput);
 inputEl?.addEventListener('search', () => {
-  if (!String(inputEl.value || '').trim()) hideSuggest();
+  if (!String(inputEl.value || '').trim()) {
+    suppressSuggest();
+    suggestSuppressed = false;
+  }
 });
 
 window.getSelectedIntakeBook = () => selectedBook;
