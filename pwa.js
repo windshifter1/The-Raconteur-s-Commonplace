@@ -22,4 +22,23 @@ function bindKeyboardInset() {
   sync();
 }
 
+function dismissBootHearth() {
+  const el = document.getElementById('boot-hearth');
+  if (!el || el.classList.contains('is-done')) return;
+  const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const min = reduce ? 180 : 1700;
+  const wait = Math.max(0, min - performance.now());
+  window.setTimeout(() => {
+    el.classList.add('is-done');
+    el.setAttribute('aria-busy', 'false');
+    const remove = () => el.remove();
+    el.addEventListener('transitionend', remove, { once: true });
+    window.setTimeout(remove, 900);
+  }, wait);
+}
+
 bindKeyboardInset();
+
+if (document.readyState === 'complete') dismissBootHearth();
+else window.addEventListener('load', dismissBootHearth);
+window.setTimeout(dismissBootHearth, 4200);

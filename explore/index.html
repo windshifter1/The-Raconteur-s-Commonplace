@@ -3,7 +3,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, interactive-widget=resizes-content" />
-    <meta name="theme-color" content="#1a1210" />
+    <meta name="theme-color" content="#2b1a16" />
     <meta name="color-scheme" content="dark" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="mobile-web-app-capable" content="yes" />
@@ -20,9 +20,21 @@
       href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Manrope:wght@400;500;600;700;800&family=Space+Mono:wght@400;700&display=swap"
       rel="stylesheet"
     />
+    <link rel="stylesheet" href="../lib/boot-hearth.css" />
     <link rel="stylesheet" href="./styles.css" />
   </head>
   <body>
+    <div class="boot-hearth" id="boot-hearth" role="status" aria-live="polite" aria-busy="true" aria-label="Opening the commonplace">
+      <div class="boot-hearth-wash" aria-hidden="true"></div>
+      <div class="boot-hearth-fire" aria-hidden="true"></div>
+      <div class="boot-hearth-motes" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
+      <div class="boot-hearth-core">
+        <div class="boot-hearth-halo" aria-hidden="true"></div>
+        <img class="boot-hearth-mark" src="./assets/rc-logo.png" width="168" height="168" alt="" />
+        <p class="boot-hearth-kicker">The Raconteur’s Commonplace</p>
+        <p class="boot-hearth-line">Opening the archive</p>
+      </div>
+    </div>
     <div class="explore-page">
       <div class="explore-frame">
       <header class="explore-top">
