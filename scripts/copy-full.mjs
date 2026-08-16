@@ -43,6 +43,12 @@ copyExperience('full');
 copyExperience('edit');
 copyExperience('explore');
 
+const libSrc = join(root, 'lib');
+if (existsSync(libSrc)) {
+  cpSync(libSrc, join(dist, 'lib'), { recursive: true });
+  console.log('Wrote kobo-dist/lib/');
+}
+
 function copyPwa() {
   for (const file of ['manifest.webmanifest', 'sw.js', 'pwa.js']) {
     const src = join(root, file);

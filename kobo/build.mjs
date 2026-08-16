@@ -6,6 +6,7 @@ import { mkdirSync, rmSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { catalogueEndpoint, renderPage } from './html.mjs';
+import { loadAccountCatalogue } from '../lib/account-catalogue.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const outDir = join(__dirname, '..', 'kobo-dist');
@@ -34,22 +35,11 @@ if (!functionBase) {
   process.exit(1);
 }
 
-async function fetchTable(name, query) {
-  const res = await fetch(supabaseUrl + '/rest/v1/' + name + '?' + query, {
-    headers: {
-      apikey: supabaseKey,
-      Authorization: 'Bearer ' + supabaseKey,
-      Accept: 'application/json',
-    },
-  });
-  if (!res.ok) {
-    throw new Error('Failed to fetch ' + name + ': HTTP ' + res.status);
-  }
-  return res.json();
-}
-
-const shelves = await fetchTable('shelves', 'select=*&order=sort_order.asc');
-const books = await fetchTable('books', 'select=*&order=title.asc');
+const accountSlug = process.env.VITE_ACCOUNT_SLUG || 'yusuf';
+const { shelves, books } = await loadAccountCatalogue(
+  { supabaseUrl, supabaseAnonKey: supabaseKey, accountSlug },
+  { includeShelves: true },
+);
 
 rmSync(outDir, { recursive: true, force: true });
 mkdirSync(outDir, { recursive: true });

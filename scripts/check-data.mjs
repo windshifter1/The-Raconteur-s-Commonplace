@@ -10,14 +10,16 @@ const env = Object.fromEntries(
 
 const url = env.VITE_SUPABASE_URL;
 const key = env.VITE_SUPABASE_ANON_KEY;
+const slug = (env.VITE_ACCOUNT_SLUG || 'yusuf').trim().toLowerCase();
 
-for (const table of ['books', 'shelves']) {
-  const res = await fetch(`${url}/rest/v1/${table}?select=*&limit=5`, {
-    headers: {
-      apikey: key,
-      Authorization: `Bearer ${key}`,
-    },
-  });
-  const text = await res.text();
-  console.log(table, res.status, text.slice(0, 500));
-}
+const headers = {
+  apikey: key,
+  Authorization: `Bearer ${key}`,
+};
+
+const accountRes = await fetch(
+  `${url}/rest/v1/accounts?slug=eq.${encodeURIComponent(slug)}&select=id,name,slug,books(id,title),shelves(id,name)&books.order=title.asc`,
+  { headers },
+);
+const accountText = await accountRes.text();
+console.log('account', slug, accountRes.status, accountText.slice(0, 800));

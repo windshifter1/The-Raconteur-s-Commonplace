@@ -1,26 +1,23 @@
 /**
  * Local + catalogue collection for intake duplicates and ACCEPT.
- * Catalogue rows live in public.books; recently accepted scans also cache locally.
+ * Catalogue rows live under the Yusuf account; recently accepted scans also cache locally.
  */
 import config from './config.js';
+import {
+  booksUrl,
+  loadAccount,
+  loadAccountBooksWhere,
+  restHeaders,
+} from '../lib/account-catalogue.js';
 import { isbnKeys, matchesIsbn, normalizeIsbn } from './isbn.js';
 
 const STORAGE_KEY = 'trc-intake-collection';
 
-function restHeaders() {
-  const key = config.supabaseAnonKey;
-  return {
-    apikey: key,
-    Authorization: `Bearer ${key}`,
-    Accept: 'application/json',
+function writeHeaders() {
+  return restHeaders(config, {
     'Content-Type': 'application/json',
     Prefer: 'return=representation',
-  };
-}
-
-function booksUrl() {
-  const base = String(config.supabaseUrl || '').replace(/\/$/, '');
-  return base ? `${base}/rest/v1/books` : '';
+  });
 }
 
 function readLocal() {
@@ -97,38 +94,35 @@ function cacheLocal(record) {
   writeLocal(rows);
 }
 
+const BOOK_COLS = 'id,title,author,isbn,cover_url,year,publisher,description';
+
 async function findRemoteByIsbn(normalized) {
-  const url = booksUrl();
-  const key = config.supabaseAnonKey;
-  if (!url || !key) return null;
+  if (!config.supabaseUrl || !config.supabaseAnonKey) return null;
   const keys = isbnKeys(normalized);
   const orParts = keys.map((k) => `isbn.eq.${encodeURIComponent(k)}`);
-  const exactUrl = `${url}?select=id,title,author,isbn,cover_url,year,publisher,description&or=(${orParts.join(',')})`;
-  const exactRes = await fetch(exactUrl, { headers: restHeaders() });
-  if (exactRes.ok) {
-    const rows = await exactRes.json();
-    if (Array.isArray(rows)) {
-      for (const row of rows) {
-        if (matchesIsbn(row.isbn, normalized)) return asRecord(row);
-      }
+  try {
+    const exact = await loadAccountBooksWhere(
+      config,
+      `or=(${orParts.join(',')})`,
+      BOOK_COLS,
+    );
+    for (const row of exact.books) {
+      if (matchesIsbn(row.isbn, normalized)) return asRecord(row);
     }
-  } else if (exactRes.status >= 500) {
-    throw new Error(`Catalogue lookup failed (${exactRes.status}).`);
+  } catch (err) {
+    const status = Number(String(err?.message || '').match(/\((\d+)\)/)?.[1]);
+    if (status >= 500) throw err;
   }
 
-  const scanUrl = `${url}?select=id,title,author,isbn,cover_url,year,publisher,description&isbn=not.is.null&limit=2000`;
-  const scanRes = await fetch(scanUrl, { headers: restHeaders() });
-  if (!scanRes.ok) throw new Error(`Catalogue lookup failed (${scanRes.status}).`);
-  const rows = await scanRes.json();
-  if (!Array.isArray(rows)) return null;
-  for (const row of rows) {
+  const scan = await loadAccountBooksWhere(config, 'isbn=not.is.null&limit=2000', BOOK_COLS);
+  for (const row of scan.books) {
     if (matchesIsbn(row.isbn, normalized)) return asRecord(row);
   }
   return null;
 }
 
 /**
- * Local cache first, then public.books. Same ISBN-10/13 pair counts as one edition.
+ * Local cache first, then Yusuf's account books. Same ISBN-10/13 pair counts as one edition.
  */
 export async function findInCollection(normalized) {
   const local = findLocalByIsbn(normalized);
@@ -146,7 +140,9 @@ export async function addToCollection(book) {
     throw err;
   }
 
+  const account = await loadAccount(config);
   const payload = {
+    account_id: account.id,
     title: String(book.title || '').trim() || 'Untitled',
     author: (book.authors || []).join(', ') || 'Unknown author',
     format: 'paperback',
@@ -161,11 +157,11 @@ export async function addToCollection(book) {
     tags: ['intake', 'barcode'],
   };
 
-  const url = booksUrl();
+  const url = booksUrl(config);
   if (!url) throw new Error('Catalogue is not configured.');
   const res = await fetch(url, {
     method: 'POST',
-    headers: restHeaders(),
+    headers: writeHeaders(),
     body: JSON.stringify(payload),
   });
   const rows = await res.json().catch(() => []);

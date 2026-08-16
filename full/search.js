@@ -1,7 +1,8 @@
 /**
- * Catalogue search against the Supabase books table (public read).
+ * Catalogue search against Yusuf's account books (database → account → data).
  */
 import config from './config.js';
+import { loadAccountCatalogue } from '../lib/account-catalogue.js';
 
 const resultsEl = document.getElementById('search-results');
 const statusEl = document.getElementById('search-status');
@@ -34,20 +35,8 @@ function escapeHtml(value) {
 }
 
 async function fetchBooks() {
-  const url = config.supabaseUrl;
-  const key = config.supabaseAnonKey;
-  if (!url || !key) {
-    throw new Error('Catalogue is not configured. Run npm run build:full with .env set.');
-  }
-  const res = await fetch(`${url}/rest/v1/books?select=*&order=title.asc`, {
-    headers: {
-      apikey: key,
-      Authorization: `Bearer ${key}`,
-      Accept: 'application/json',
-    },
-  });
-  if (!res.ok) throw new Error(`Catalogue request failed (${res.status}).`);
-  return res.json();
+  const { books } = await loadAccountCatalogue(config);
+  return books;
 }
 
 function loadBooks() {
