@@ -14,7 +14,7 @@ const boxColors = ['#8a5339', '#6b4030', '#a26443', '#5a3429'];
 const MIN_W = 8;
 const MIN_H = 18;
 const MAX_W = 96;
-const MAX_H = 92;
+const MAX_H = 100;
 const SNAP = 1.35;
 const GAP = 0.35;
 const MAX_UNITS = 9;
@@ -265,7 +265,7 @@ function autoFitZoom() {
   const caseW = plane.w * ((right - left) / 100) * 1.28;
   const caseH = plane.h * ((bottom - top) / 100) * 1.28;
   const availW = Math.max(200, sw - 28);
-  const availH = Math.max(240, sh - 168);
+  const availH = Math.max(240, sh - 72);
   const zoomW = availW / Math.max(1, caseW);
   const zoomH = availH / Math.max(1, caseH);
   return clampZoom(Math.min(zoomW, zoomH, 1));

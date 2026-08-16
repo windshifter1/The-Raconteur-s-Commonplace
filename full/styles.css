@@ -78,6 +78,9 @@ button {
   --pan-x: 0px;
   --pan-y: 0px;
   --zoom: 1;
+  --scene-floor-pad: calc(
+    clamp(20px, 6vh, 70px) + env(safe-area-inset-bottom) + var(--keyboard-inset, 0px) + 4.7rem + 10px
+  );
   position: relative;
   min-height: 100dvh;
   overflow: hidden;
@@ -102,6 +105,7 @@ button {
 .scene-viewport {
   position: absolute;
   inset: 0;
+  bottom: var(--scene-floor-pad);
   overflow: hidden;
   touch-action: none;
   cursor: var(--cursor-idle);
@@ -1338,6 +1342,12 @@ button {
     right: 12px;
     bottom: calc(max(12px, env(safe-area-inset-bottom)) + var(--keyboard-inset, 0px));
     left: 12px;
+  }
+
+  .world-home {
+    --scene-floor-pad: calc(
+      max(12px, env(safe-area-inset-bottom)) + var(--keyboard-inset, 0px) + 6.6rem + 10px
+    );
   }
 
   .search-bar {
