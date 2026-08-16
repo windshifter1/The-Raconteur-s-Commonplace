@@ -1,0 +1,63 @@
+name: Apply database migrations
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'supabase/migrations/**'
+      - '.github/workflows/apply-migrations.yml'
+  workflow_dispatch:
+
+jobs:
+  migrate:
+    runs-on: ubuntu-latest
+    environment: github-pages
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Apply Yusuf account migration
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          VITE_SUPABASE_URL: ${{ vars.VITE_SUPABASE_URL || secrets.VITE_SUPABASE_URL }}
+          VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
+        run: |
+          set -euo pipefail
+          if [ -z "${SUPABASE_ACCESS_TOKEN:-}" ]; then
+            echo "::error::SUPABASE_ACCESS_TOKEN is missing."
+            exit 1
+          fi
+          sql=$(jq -Rs . < supabase/migrations/004_accounts.sql)
+          code=$(curl -sS -o /tmp/migrate.json -w "%{http_code}" \
+            -X POST "https://api.supabase.com/v1/projects/joctuzargvajerqwxuvn/database/query" \
+            -H "Authorization: Bearer $SUPABASE_ACCESS_TOKEN" \
+            -H "Content-Type: application/json" \
+            -d "{\"query\": $sql}")
+          echo "Management API HTTP $code"
+          head -c 800 /tmp/migrate.json || true
+          echo
+          if [ "$code" -lt 200 ] || [ "$code" -ge 300 ]; then
+            echo "::error::Could not run 004_accounts.sql"
+            exit 1
+          fi
+          if [ -z "${VITE_SUPABASE_URL:-}" ] || [ -z "${VITE_SUPABASE_ANON_KEY:-}" ]; then
+            echo "::warning::Migration ran, but URL/anon key missing so verify was skipped."
+            exit 0
+          fi
+          url="${VITE_SUPABASE_URL%/}/rest/v1/accounts?slug=eq.yusuf&select=id,name,slug"
+          for i in 1 2 3 4 5 6; do
+            body=$(curl -sS -w "\nHTTP:%{http_code}" \
+              -H "apikey: $VITE_SUPABASE_ANON_KEY" \
+              -H "Authorization: Bearer $VITE_SUPABASE_ANON_KEY" \
+              -H "Accept: application/json" \
+              "$url")
+            echo "$body" | tail -c 400
+            echo
+            echo "$body" | grep -q 'HTTP:200' && echo "$body" | grep -qi 'yusuf' && {
+              echo "Yusuf account is live."
+              exit 0
+            }
+            sleep 5
+          done
+          echo "::error::Migration appeared to run, but public.accounts is not readable yet."
+          exit 1

@@ -75,3 +75,5 @@ alter table public.accounts enable row level security;
 
 drop policy if exists "Public read accounts" on public.accounts;
 create policy "Public read accounts" on public.accounts for select using (true);
+
+notify pgrst, 'reload schema';
