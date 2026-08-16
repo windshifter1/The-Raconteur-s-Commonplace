@@ -1324,7 +1324,7 @@ button {
 }
 
 @media (max-width: 700px) {
-  /* Bookshelf stays at desktop scale — pan to explore (no shrink). */
+  /* Portrait zoom is fitted in JS so the 3-bay case stays on screen. */
 
   .edit-panel {
     top: auto;

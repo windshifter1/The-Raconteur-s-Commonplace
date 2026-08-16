@@ -11,7 +11,7 @@ const STORAGE_KEY = 'trc-full-library-v2';
 const bookColors = ['#bd6256', '#597e9d', '#ce9551', '#67886d', '#a3647a', '#a68a62', '#4c7779'];
 const boxColors = ['#8a5339', '#6b4030', '#a26443', '#5a3429'];
 
-const MIN_W = 14;
+const MIN_W = 8;
 const MIN_H = 18;
 const MAX_W = 96;
 const MAX_H = 92;
@@ -36,7 +36,7 @@ const SCENE_MIN_H = 720;
 /** Extra bleed so the room still fills the frame on large screens (old ~inset). */
 const CAMERA_BLEED_X = 1.2;
 const CAMERA_BLEED_Y = 1.12;
-const ZOOM_MIN = 0.75;
+const ZOOM_MIN = 0.38;
 const ZOOM_MAX = 1.45;
 
 const world = document.getElementById('world');
@@ -179,6 +179,9 @@ let pan = { x: 0, y: 0 };
 let panDrag = null;
 /** Mobile pinch zoom (session only — not baked into library state). */
 let viewZoom = 1;
+/** Pinch multiplier on top of the portrait auto-fit. */
+let pinchScale = 1;
+let lastPortrait = null;
 let pinch = null;
 let overlayRaf = 0;
 
@@ -225,6 +228,49 @@ function cameraBoxSize(sw = stage?.clientWidth || 0, sh = stage?.clientHeight ||
   };
 }
 
+function isMobilePortrait() {
+  const sw = stage?.clientWidth || window.innerWidth || 0;
+  const sh = stage?.clientHeight || window.innerHeight || 0;
+  return sw > 8 && sh > 8 && sw < sh && sw <= 900;
+}
+
+function placementPlaneSize(refW, refH) {
+  let planeW = refW;
+  let planeH = refH;
+  if (refW / refH > PLANE_ASPECT) planeW = refH * PLANE_ASPECT;
+  else planeH = refW / PLANE_ASPECT;
+  return { w: planeW * PLANE_FIT, h: planeH * PLANE_FIT };
+}
+
+/** Scale the desktop-sized room so the 3-bay case fits a portrait phone. */
+function autoFitZoom() {
+  if (!isMobilePortrait()) return 1;
+  const sw = stage.clientWidth;
+  const sh = stage.clientHeight;
+  const { w: camW, h: camH } = cameraBoxSize(sw, sh);
+  const plane = placementPlaneSize(camW, camH);
+  const units = state.units || [];
+  let left = 100;
+  let right = 0;
+  let top = 100;
+  let bottom = 0;
+  units.forEach((u) => {
+    left = Math.min(left, u.x);
+    right = Math.max(right, u.x + u.w);
+    top = Math.min(top, u.y);
+    bottom = Math.max(bottom, u.y + u.h);
+  });
+  if (right <= left || bottom <= top) return 1;
+  /* Wall scale (1.22) plus a little for 3D extrusion / perspective. */
+  const caseW = plane.w * ((right - left) / 100) * 1.28;
+  const caseH = plane.h * ((bottom - top) / 100) * 1.28;
+  const availW = Math.max(200, sw - 28);
+  const availH = Math.max(240, sh - 168);
+  const zoomW = availW / Math.max(1, caseW);
+  const zoomH = availH / Math.max(1, caseH);
+  return clampZoom(Math.min(zoomW, zoomH, 1));
+}
+
 function relayout() {
   resetCameraBox();
   centerView();
@@ -233,12 +279,30 @@ function relayout() {
 }
 
 /**
- * Camera size comes from CSS (min 1280×720). --zoom is mobile pinch / session zoom.
+ * Camera size comes from CSS (min 1280×720). --zoom fits portrait and pinch.
  * Do not CSS-scale a phone-sized room — that breaks perspective.
  */
 function clampZoom(z) {
   const n = Number(z);
   return Math.min(ZOOM_MAX, Math.max(ZOOM_MIN, Number.isFinite(n) ? n : 1));
+}
+
+function syncPortraitPinch() {
+  const portrait = isMobilePortrait();
+  if (lastPortrait !== null && lastPortrait !== portrait) {
+    pinchScale = 1;
+    pan.x = 0;
+    pan.y = 0;
+  }
+  lastPortrait = portrait;
+}
+
+function resolvedZoom() {
+  const fit = autoFitZoom();
+  const maxScale = ZOOM_MAX / Math.max(ZOOM_MIN, fit);
+  const minScale = ZOOM_MIN / Math.max(ZOOM_MIN, fit);
+  pinchScale = Math.min(maxScale, Math.max(minScale, pinchScale));
+  return clampZoom(fit * pinchScale);
 }
 
 function syncCameraFrame() {
@@ -247,7 +311,8 @@ function syncCameraFrame() {
   const sh = stage.clientHeight;
   if (sw < 8 || sh < 8) return false;
   resetCameraBox();
-  viewZoom = clampZoom(viewZoom);
+  syncPortraitPinch();
+  viewZoom = resolvedZoom();
   world.style.setProperty('--zoom', String(viewZoom));
   const { w: camW, h: camH } = cameraBoxSize(sw, sh);
   clampPan(sw, sh, camW * viewZoom, camH * viewZoom);
@@ -257,7 +322,8 @@ function syncCameraFrame() {
 
 function applyViewZoom() {
   if (!world) return;
-  viewZoom = clampZoom(viewZoom);
+  syncPortraitPinch();
+  viewZoom = resolvedZoom();
   world.style.setProperty('--zoom', String(viewZoom));
   const sw = stage?.clientWidth || window.innerWidth || SCENE_MIN_W;
   const sh = stage?.clientHeight || window.innerHeight || SCENE_MIN_H;
@@ -298,12 +364,7 @@ function syncPlacementPlane() {
   if (sw < 8 || sh < 8) return false;
 
   const { w: refW, h: refH } = cameraBoxSize(sw, sh);
-  let planeW = refW;
-  let planeH = refH;
-  if (refW / refH > PLANE_ASPECT) planeW = refH * PLANE_ASPECT;
-  else planeH = refW / PLANE_ASPECT;
-  planeW *= PLANE_FIT;
-  planeH *= PLANE_FIT;
+  const { w: planeW, h: planeH } = placementPlaneSize(refW, refH);
 
   unitLayer.style.width = `${Math.round(planeW)}px`;
   unitLayer.style.height = `${Math.round(planeH)}px`;
@@ -360,8 +421,7 @@ function planeLayoutSize() {
   const sw = stage?.clientWidth || window.innerWidth || SCENE_MIN_W;
   const sh = stage?.clientHeight || window.innerHeight || SCENE_MIN_H;
   const { w: refW, h: refH } = cameraBoxSize(sw, sh);
-  if (refW / refH > PLANE_ASPECT) return { w: refH * PLANE_ASPECT * PLANE_FIT, h: refH * PLANE_FIT };
-  return { w: refW * PLANE_FIT, h: (refW / PLANE_ASPECT) * PLANE_FIT };
+  return placementPlaneSize(refW, refH);
 }
 
 function sanitizeState(next = state) {
@@ -1665,7 +1725,7 @@ function beginPinch(touches) {
   endPanDrag();
   pinch = {
     startDist: Math.max(1, touchDistance(touches[0], touches[1])),
-    startZoom: viewZoom,
+    startScale: pinchScale,
   };
   world?.classList.add('is-panning');
   aim(0, 0);
@@ -1674,7 +1734,7 @@ function beginPinch(touches) {
 function movePinch(touches) {
   if (!pinch || touches.length < 2) return;
   const dist = Math.max(1, touchDistance(touches[0], touches[1]));
-  viewZoom = clampZoom(pinch.startZoom * (dist / pinch.startDist));
+  pinchScale = pinch.startScale * (dist / pinch.startDist);
   applyViewZoom();
 }
 
