@@ -262,8 +262,8 @@ function autoFitZoom() {
   });
   if (right <= left || bottom <= top) return 1;
   /* Wall scale (1.22) plus a little for 3D extrusion / perspective. */
-  const caseW = plane.w * ((right - left) / 100) * 1.28;
-  const caseH = plane.h * ((bottom - top) / 100) * 1.28;
+  const caseW = plane.w * ((right - left) / 100) * 1.16;
+  const caseH = plane.h * ((bottom - top) / 100) * 1.16;
   const availW = Math.max(200, sw - 28);
   const availH = Math.max(240, sh - 72);
   const zoomW = availW / Math.max(1, caseW);
@@ -1661,8 +1661,8 @@ function aim(x, y) {
 
 function apply() {
   if (!world) return;
-  world.style.setProperty('--ry', `${current.x * 4}deg`);
-  world.style.setProperty('--rx', `${current.y * -2.5}deg`);
+  world.style.setProperty('--ry', `${current.x * 2.2}deg`);
+  world.style.setProperty('--rx', `${current.y * -1.4}deg`);
   world.style.setProperty('--shift-x', `${current.x * 8}px`);
   world.style.setProperty('--shift-y', `${current.y * 4}px`);
   scheduleOverlaySync();

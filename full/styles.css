@@ -110,8 +110,8 @@ button {
   touch-action: none;
   cursor: var(--cursor-idle);
   background: #2e2220;
-  perspective: 1400px;
-  perspective-origin: 50% 46%;
+  perspective: 2100px;
+  perspective-origin: 50% 48%;
 }
 
 .scene-viewport:active {
@@ -159,7 +159,7 @@ button {
 /* Back wall — full bleed */
 .px-back {
   inset: -2%;
-  transform: translateZ(-240px) scale(1.22);
+  transform: translateZ(-180px) scale(1.1);
   transform-style: preserve-3d;
   overflow: visible;
   background:
@@ -356,20 +356,23 @@ button {
   padding: inherit;
   pointer-events: none;
   content: '';
-  background-color: #4a3226;
+  background-color: #4a2a1e;
   background-image:
-    linear-gradient(180deg, rgba(255, 228, 186, 0.28), transparent 14px),
-    linear-gradient(90deg, rgba(255, 214, 160, 0.12), transparent 12px),
-    linear-gradient(270deg, rgba(18, 8, 6, 0.42), transparent 14px),
-    linear-gradient(0deg, rgba(12, 6, 4, 0.5), transparent 22px),
-    radial-gradient(ellipse 80% 36% at 32% 0%, rgba(255, 214, 150, 0.2), transparent 58%),
+    linear-gradient(180deg, rgba(255, 196, 118, 0.38), transparent 28%),
+    linear-gradient(90deg, rgba(62, 28, 18, 0.28), transparent 22%),
+    linear-gradient(270deg, rgba(18, 8, 6, 0.42), transparent 24%),
+    linear-gradient(0deg, rgba(8, 3, 2, 0.55), transparent 32%),
     var(--wood-tex);
-  background-size: auto, auto, auto, auto, auto, 220px auto;
-  background-position: 0 0, 0 0, 0 0, 0 0, 0 0, var(--wood-x, 40%) 0;
-  background-repeat: no-repeat, no-repeat, no-repeat, no-repeat, no-repeat, repeat;
+  background-size: auto, auto, auto, auto, 280px auto;
+  background-position: 0 0, 0 0, 0 0, 0 0, var(--wood-x, 40%) 0;
+  background-repeat: no-repeat, no-repeat, no-repeat, no-repeat, repeat;
+  background-blend-mode: overlay, multiply, multiply, multiply, normal;
+  filter: contrast(1.22) saturate(1.28) brightness(1.06);
   box-shadow:
-    inset 0 1px 0 rgba(255, 228, 186, 0.28),
-    inset 0 -3px 0 rgba(20, 10, 8, 0.45);
+    inset 0 1px 0 rgba(255, 226, 176, 0.45),
+    inset 0 -4px 8px rgba(12, 4, 2, 0.55),
+    inset 1px 0 0 rgba(255, 210, 150, 0.12),
+    inset -2px 0 0 rgba(0, 0, 0, 0.35);
   -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
   -webkit-mask-composite: xor;
   mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
@@ -393,43 +396,30 @@ button {
   transform-style: preserve-3d;
 }
 
-.shelf-box::after {
-  position: absolute;
-  inset: 0;
-  z-index: 6;
-  pointer-events: none;
-  content: '';
-  background:
-    radial-gradient(ellipse 75% 42% at 50% -8%, rgba(255, 206, 128, 0.16), transparent 62%),
-    linear-gradient(180deg, rgba(0, 0, 0, 0.08), transparent 22%);
-  mix-blend-mode: soft-light;
-  transform: translateZ(6px);
-}
-
 .shelf-face {
   position: absolute;
   image-rendering: auto;
 }
 
-/* Inner back wall — shadowed cavity, vertical boards */
+/* Inner back wall — deep cavity, warm wood still visible */
 .shelf-back {
   inset: 0;
   transform: translateZ(calc(var(--shelf-d) * -1));
-  background-color: #2c1c18;
+  background-color: #2a1814;
   background-image:
-    radial-gradient(ellipse 90% 40% at 50% 0%, rgba(0, 0, 0, 0.42), transparent 58%),
-    linear-gradient(90deg, rgba(0, 0, 0, 0.55), transparent 16%, transparent 84%, rgba(0, 0, 0, 0.5)),
-    linear-gradient(180deg, rgba(0, 0, 0, 0.32), transparent 18%),
-    repeating-linear-gradient(90deg, transparent 0 32%, rgba(0, 0, 0, 0.16) 32% 33%, transparent 33% 66%, rgba(0, 0, 0, 0.12) 66% 67%, transparent 67% 100%),
+    radial-gradient(ellipse 90% 55% at 50% 0%, rgba(0, 0, 0, 0.62), transparent 70%),
+    linear-gradient(90deg, rgba(0, 0, 0, 0.72), transparent 20%, transparent 80%, rgba(0, 0, 0, 0.68)),
+    linear-gradient(180deg, rgba(0, 0, 0, 0.4), transparent 24%, rgba(40, 16, 10, 0.28) 100%),
     var(--wood-tex);
-  background-size: auto, auto, auto, auto, 160% auto;
-  background-position: 0 0, 0 0, 0 0, 0 0, var(--wood-x, 40%) 0;
+  background-size: auto, auto, auto, 170% auto;
+  background-position: 0 0, 0 0, 0 0, var(--wood-x, 40%) 0;
   background-repeat: no-repeat;
-  box-shadow: inset 0 0 28px rgba(0, 0, 0, 0.35);
+  background-blend-mode: multiply, multiply, multiply, normal;
+  box-shadow: inset 0 0 42px rgba(0, 0, 0, 0.45);
   overflow: hidden;
   backface-visibility: hidden;
   pointer-events: none;
-  filter: brightness(0.78) saturate(0.92);
+  filter: contrast(1.18) saturate(1.12) brightness(0.82);
 }
 
 /* Left inner wall — lit at the front edge, falling into shadow */
@@ -441,14 +431,16 @@ button {
   overflow: hidden;
   transform-origin: left center;
   transform: rotateY(90deg);
-  background-color: #3a2822;
+  background-color: #3a241c;
   background-image:
-    linear-gradient(90deg, rgba(255, 214, 160, 0.14), rgba(0, 0, 0, 0.58)),
+    linear-gradient(90deg, rgba(255, 198, 120, 0.28), rgba(0, 0, 0, 0.62)),
     var(--wood-tex);
   background-size: auto, auto 130%;
   background-position: 0 0, calc(var(--wood-x, 40%) + 12%) 0;
   background-repeat: no-repeat;
-  box-shadow: inset -2px 0 0 rgba(232, 190, 120, 0.16);
+  background-blend-mode: overlay, normal;
+  filter: contrast(1.18) saturate(1.2);
+  box-shadow: inset -2px 0 0 rgba(255, 214, 150, 0.22);
   backface-visibility: hidden;
 }
 
@@ -461,14 +453,16 @@ button {
   overflow: hidden;
   transform-origin: right center;
   transform: rotateY(-90deg);
-  background-color: #3a2822;
+  background-color: #3a241c;
   background-image:
-    linear-gradient(270deg, rgba(255, 214, 160, 0.08), rgba(0, 0, 0, 0.62)),
+    linear-gradient(270deg, rgba(255, 190, 110, 0.12), rgba(0, 0, 0, 0.68)),
     var(--wood-tex);
   background-size: auto, auto 130%;
   background-position: 0 0, calc(var(--wood-x, 40%) - 18%) 0;
   background-repeat: no-repeat;
-  box-shadow: inset 2px 0 0 rgba(0, 0, 0, 0.4);
+  background-blend-mode: overlay, normal;
+  filter: contrast(1.18) saturate(1.2);
+  box-shadow: inset 2px 0 0 rgba(0, 0, 0, 0.5);
   backface-visibility: hidden;
 }
 
@@ -491,6 +485,7 @@ button {
   background: var(--wood-tex) var(--wood-x, 40%) 50% / 240px auto;
   transform: translate(-50%, -50%) rotate(90deg);
   pointer-events: none;
+  filter: contrast(1.2) saturate(1.22) brightness(1.08);
 }
 
 .shelf-top::after,
@@ -512,7 +507,8 @@ button {
 }
 
 .shelf-top::after {
-  background: linear-gradient(180deg, rgba(255, 224, 170, 0.16), rgba(0, 0, 0, 0.42));
+  background: linear-gradient(180deg, rgba(255, 214, 150, 0.32), rgba(0, 0, 0, 0.5));
+  mix-blend-mode: overlay;
 }
 
 .shelf-bottom {
@@ -526,7 +522,8 @@ button {
 }
 
 .shelf-bottom::after {
-  background: linear-gradient(0deg, rgba(40, 22, 16, 0.2), rgba(0, 0, 0, 0.55));
+  background: linear-gradient(0deg, rgba(255, 180, 110, 0.08), rgba(0, 0, 0, 0.62));
+  mix-blend-mode: multiply;
 }
 
 /* Floor */
@@ -650,7 +647,7 @@ button {
   background: var(--wood-tex) var(--wood-x, 40%) 50% / 220px auto;
   transform: translate(-50%, -50%) rotate(90deg);
   pointer-events: none;
-  filter: contrast(1.1) saturate(1.05);
+  filter: contrast(1.18) saturate(1.2) brightness(1.05);
 }
 
 .shelf-plank::after {
@@ -658,7 +655,8 @@ button {
   inset: 0;
   content: '';
   pointer-events: none;
-  background: linear-gradient(180deg, rgba(255, 230, 186, 0.28), transparent 38%, rgba(0, 0, 0, 0.38));
+  background: linear-gradient(180deg, rgba(255, 220, 160, 0.42), transparent 40%, rgba(0, 0, 0, 0.5));
+  mix-blend-mode: overlay;
 }
 
 .is-editing .shelf-plank.is-draggable {
