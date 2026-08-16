@@ -4,10 +4,10 @@
  */
 
 import bakedLibrary from './library.js';
+import { sprinkleButtonMotes } from '../lib/ember-motes.js';
 
 const VIEW_ONLY = true;
 const STORAGE_KEY = 'trc-full-library-v2';
-const LEGACY_KEY = 'trc-mockup6-library-v1';
 const bookColors = ['#bd6256', '#597e9d', '#ce9551', '#67886d', '#a3647a', '#a68a62', '#4c7779'];
 const boxColors = ['#8a5339', '#6b4030', '#a26443', '#5a3429'];
 
@@ -201,6 +201,7 @@ async function boot() {
   import('./search.js')
     .then((m) => m.bindSearchUi?.())
     .catch(() => {});
+  sprinkleButtonMotes();
   if (reduceMotion) apply();
 }
 
@@ -1038,6 +1039,7 @@ function buildUnitDom(unit, unitIndex) {
   root.style.height = `${unit.h}%`;
   root.style.setProperty('--shelf-d', `${state.depth}px`);
   root.style.setProperty('--frame-edge', `${state.edges}px`);
+  root.style.setProperty('--wood-x', `${8 + ((unitIndex * 37) % 72)}%`);
   if (selected.unitId === unit.id) root.classList.add('is-active-unit');
   if (selected.unitId === unit.id && selected.type === 'unit') root.classList.add('is-unit-selected');
 
@@ -1054,6 +1056,19 @@ function buildUnitDom(unit, unitIndex) {
   `;
 
   const cavity = root.querySelector('[data-cavity]');
+  const motes = document.createElement('div');
+  motes.className = 'case-motes';
+  motes.setAttribute('aria-hidden', 'true');
+  for (let i = 0; i < 8; i++) {
+    const spec = document.createElement('i');
+    spec.className = 'mote mote--case';
+    spec.style.left = `${8 + ((i * 13 + unitIndex * 7) % 84)}%`;
+    spec.style.top = `${10 + ((i * 19 + unitIndex * 11) % 78)}%`;
+    spec.style.animationDelay = `${-(i * 1.35 + unitIndex * 0.8)}s`;
+    spec.style.animationDuration = `${11 + (i % 4) * 2}s`;
+    motes.appendChild(spec);
+  }
+  cavity?.appendChild(motes);
   layoutMetrics(unit.shelves).forEach(({ shelf, top, height }, index) => {
     const row = document.createElement('div');
     row.className = 'shelf-row';

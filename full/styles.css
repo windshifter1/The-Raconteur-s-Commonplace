@@ -8,6 +8,7 @@
   --wood-deep: #271b1d;
   --wood: #5a3429;
   --wood-light: #a26443;
+  --wood-tex: url('./assets/wood-walnut.png');
   --wall: #2e2220;
   --wall-panel: #3a2a28;
   --ember: #e4a557;
@@ -167,6 +168,14 @@ button {
   box-shadow: inset 0 0 0 4px #392529;
 }
 
+.unit-layer,
+.px-shelf,
+.px-shelf *,
+.px-shelf *::before,
+.px-shelf *::after {
+  image-rendering: auto;
+}
+
 .px-arch {
   position: absolute;
   inset: 0 0 auto;
@@ -198,6 +207,7 @@ button {
 .px-shelf {
   --shelf-d: 80px;
   --frame-edge: 16px;
+  --wood-x: 40%;
   position: absolute;
   transform: translateZ(calc(var(--shelf-d) + 28px));
   transform-style: preserve-3d;
@@ -208,17 +218,13 @@ button {
 .px-shelf.is-active-unit .shelf-frame {
   box-shadow:
     inset 0 0 0 3px rgba(195, 127, 70, 0.3),
-    0 0 0 2px rgba(232, 176, 96, 0.55),
-    0 14px 0 rgba(20, 16, 19, 0.5),
-    0 24px 48px rgba(0, 0, 0, 0.35);
+    0 0 0 2px rgba(232, 176, 96, 0.55);
 }
 
 .px-shelf.is-unit-selected .shelf-frame {
   box-shadow:
     inset 0 0 0 3px rgba(195, 127, 70, 0.3),
-    0 0 0 2px rgba(232, 176, 96, 0.95),
-    0 14px 0 rgba(20, 16, 19, 0.5),
-    0 24px 48px rgba(0, 0, 0, 0.35);
+    0 0 0 2px rgba(232, 176, 96, 0.95);
 }
 
 /* Screen-space selection overlay — tracks getBoundingClientRect of the case */
@@ -335,20 +341,23 @@ button {
   border-color: #4a3226;
   border-width: var(--frame-edge);
   border-bottom-width: calc(var(--frame-edge) * 2.35);
+  border-image-source: var(--wood-tex);
+  border-image-slice: 18%;
+  border-image-width: var(--frame-edge) var(--frame-edge) calc(var(--frame-edge) * 2.35) var(--frame-edge);
+  border-image-repeat: repeat;
   background: transparent;
-  box-shadow:
-    inset 0 0 0 3px rgba(195, 127, 70, 0.22),
-    0 14px 0 rgba(20, 16, 19, 0.5),
-    0 24px 48px rgba(0, 0, 0, 0.35);
+  box-shadow: inset 0 0 0 2px rgba(40, 24, 20, 0.28);
   cursor: var(--cursor-active);
 }
 
 .px-shelf.is-bay-join-e .shelf-frame {
   border-right-width: calc(var(--frame-edge) * 0.55);
+  border-image-width: var(--frame-edge) calc(var(--frame-edge) * 0.55) calc(var(--frame-edge) * 2.35) var(--frame-edge);
 }
 
 .px-shelf.is-bay-join-w .shelf-frame {
   border-left-width: calc(var(--frame-edge) * 0.55);
+  border-image-width: var(--frame-edge) var(--frame-edge) calc(var(--frame-edge) * 2.35) calc(var(--frame-edge) * 0.55);
 }
 
 .shelf-box {
@@ -359,24 +368,22 @@ button {
 
 .shelf-face {
   position: absolute;
-  image-rendering: pixelated;
+  image-rendering: auto;
 }
 
 /* Inner back wall — holds the books (vertical walnut grain) */
 .shelf-back {
   inset: 0;
   transform: translateZ(calc(var(--shelf-d) * -1));
-  background:
-    linear-gradient(90deg, rgba(0, 0, 0, 0.42), transparent 12%, transparent 88%, rgba(0, 0, 0, 0.36)),
-    linear-gradient(180deg, rgba(0, 0, 0, 0.32), transparent 14%),
-    repeating-linear-gradient(
-      90deg,
-      #2a1a16 0 2px,
-      #3d2a22 2px 5px,
-      #261814 5px 7px,
-      #4a3328 7px 10px
-    );
-  box-shadow: inset 0 0 0 2px rgba(50, 34, 30, 0.9);
+  background-color: #3a2822;
+  background-image:
+    linear-gradient(90deg, rgba(0, 0, 0, 0.38), transparent 14%, transparent 86%, rgba(0, 0, 0, 0.32)),
+    linear-gradient(180deg, rgba(0, 0, 0, 0.28), transparent 16%),
+    var(--wood-tex);
+  background-size: auto, auto, auto 118%;
+  background-position: 0 0, 0 0, var(--wood-x, 40%) 0;
+  background-repeat: no-repeat;
+  box-shadow: inset 0 0 0 1px rgba(50, 34, 30, 0.55);
   overflow: hidden;
   backface-visibility: hidden;
   pointer-events: none;
@@ -388,17 +395,17 @@ button {
   left: 0;
   width: var(--shelf-d);
   height: 100%;
+  overflow: hidden;
   transform-origin: left center;
   transform: rotateY(90deg);
-  background:
-    repeating-linear-gradient(
-      90deg,
-      #7a503c 0 3px,
-      #5a3a2e 3px 6px,
-      #3a2620 6px 8px
-    ),
-    linear-gradient(90deg, #7a503c 0%, #5a3a2e 30%, #3a2620 65%, #241816 100%);
-  box-shadow: inset -2px 0 0 rgba(195, 127, 70, 0.28);
+  background-color: #3a2822;
+  background-image:
+    linear-gradient(90deg, rgba(0, 0, 0, 0.08), rgba(0, 0, 0, 0.42)),
+    var(--wood-tex);
+  background-size: auto, auto 118%;
+  background-position: 0 0, calc(var(--wood-x, 40%) + 18%) 0;
+  background-repeat: no-repeat;
+  box-shadow: inset -2px 0 0 rgba(195, 127, 70, 0.18);
   backface-visibility: hidden;
 }
 
@@ -408,21 +415,49 @@ button {
   right: 0;
   width: var(--shelf-d);
   height: 100%;
+  overflow: hidden;
   transform-origin: right center;
   transform: rotateY(-90deg);
-  background:
-    repeating-linear-gradient(
-      90deg,
-      #6a4434 0 3px,
-      #4a3028 3px 6px,
-      #2e1e1a 6px 8px
-    ),
-    linear-gradient(270deg, #6a4434 0%, #4a3028 30%, #2e1e1a 65%, #1a1210 100%);
-  box-shadow: inset 2px 0 0 rgba(0, 0, 0, 0.4);
+  background-color: #3a2822;
+  background-image:
+    linear-gradient(270deg, rgba(0, 0, 0, 0.08), rgba(0, 0, 0, 0.48)),
+    var(--wood-tex);
+  background-size: auto, auto 118%;
+  background-position: 0 0, calc(var(--wood-x, 40%) - 22%) 0;
+  background-repeat: no-repeat;
+  box-shadow: inset 2px 0 0 rgba(0, 0, 0, 0.35);
   backface-visibility: hidden;
 }
 
-/* Top inner wall */
+/* Top inner wall — grain runs along the case width */
+.shelf-top,
+.shelf-bottom {
+  overflow: hidden;
+  background-color: #3a2822;
+  backface-visibility: hidden;
+}
+
+.shelf-top::before,
+.shelf-bottom::before {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 420%;
+  height: 420%;
+  content: '';
+  background: var(--wood-tex) var(--wood-x, 40%) 50% / 260px auto;
+  transform: translate(-50%, -50%) rotate(90deg);
+  pointer-events: none;
+}
+
+.shelf-top::after,
+.shelf-bottom::after {
+  position: absolute;
+  inset: 0;
+  content: '';
+  pointer-events: none;
+}
+
 .shelf-top {
   top: 0;
   left: 0;
@@ -430,19 +465,13 @@ button {
   height: var(--shelf-d);
   transform-origin: center top;
   transform: rotateX(-90deg);
-  background:
-    repeating-linear-gradient(
-      180deg,
-      #8a5a44 0 4px,
-      #5a3a2e 4px 8px,
-      #2e1e1a 8px 10px
-    ),
-    linear-gradient(180deg, #8a5a44 0%, #5a3a2e 40%, #2e1e1a 100%);
-  box-shadow: inset 0 -2px 0 rgba(195, 127, 70, 0.28);
-  backface-visibility: hidden;
+  box-shadow: inset 0 -2px 0 rgba(195, 127, 70, 0.18);
 }
 
-/* Bottom inner wall / floor of case */
+.shelf-top::after {
+  background: linear-gradient(180deg, rgba(0, 0, 0, 0.06), rgba(0, 0, 0, 0.4));
+}
+
 .shelf-bottom {
   bottom: 0;
   left: 0;
@@ -450,16 +479,11 @@ button {
   height: var(--shelf-d);
   transform-origin: center bottom;
   transform: rotateX(90deg);
-  background:
-    repeating-linear-gradient(
-      180deg,
-      #6a4434 0 4px,
-      #4a3028 4px 8px,
-      #1e1412 8px 10px
-    ),
-    linear-gradient(0deg, #6a4434 0%, #4a3028 45%, #1e1412 100%);
-  box-shadow: inset 0 2px 0 rgba(0, 0, 0, 0.45);
-  backface-visibility: hidden;
+  box-shadow: inset 0 2px 0 rgba(0, 0, 0, 0.4);
+}
+
+.shelf-bottom::after {
+  background: linear-gradient(0deg, rgba(0, 0, 0, 0.12), rgba(0, 0, 0, 0.45));
 }
 
 /* Floor */
@@ -565,18 +589,23 @@ button {
   z-index: 3;
   flex: 0 0 13px;
   width: 100%;
-  background:
-    repeating-linear-gradient(
-      90deg,
-      #8a5a3c 0 10px,
-      #6e4530 10px 18px,
-      #5a3429 18px 22px
-    ),
-    linear-gradient(180deg, #a07048 0 16%, #6a4230 16% 72%, #4a3024 72%);
+  overflow: hidden;
+  background: #4a3226;
   box-shadow:
-    0 3px 0 #2c1d20,
-    inset 0 1px 0 rgba(242, 210, 150, 0.28),
-    inset 0 -2px 0 rgba(40, 24, 22, 0.45);
+    inset 0 1px 0 rgba(242, 210, 150, 0.2),
+    inset 0 -2px 0 rgba(40, 24, 22, 0.4);
+}
+
+.shelf-plank::before {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 420%;
+  height: 420%;
+  content: '';
+  background: var(--wood-tex) center / 220px auto;
+  transform: translate(-50%, -50%) rotate(90deg);
+  pointer-events: none;
 }
 
 .is-editing .shelf-plank.is-draggable {
@@ -881,6 +910,8 @@ button {
   height: 4px;
   background: #edc877;
   opacity: 0.45;
+  border-radius: 50%;
+  box-shadow: 0 0 6px 1px rgba(237, 200, 119, 0.55);
   animation: drift 8s linear infinite;
 }
 
@@ -907,6 +938,52 @@ button {
   animation-delay: -6s;
   width: 3px;
   height: 3px;
+}
+.mote:nth-child(5) {
+  left: 39%;
+  top: 44%;
+  animation-delay: -3.2s;
+  width: 3px;
+  height: 3px;
+  opacity: 0.32;
+}
+.mote:nth-child(6) {
+  left: 51%;
+  top: 61%;
+  animation-delay: -7.4s;
+  animation-duration: 11s;
+  opacity: 0.28;
+}
+.mote:nth-child(7) {
+  left: 45%;
+  top: 36%;
+  animation-delay: -4.6s;
+  width: 2px;
+  height: 2px;
+  opacity: 0.35;
+}
+.mote:nth-child(8) {
+  left: 55%;
+  top: 48%;
+  animation-delay: -1.8s;
+  animation-duration: 10s;
+  opacity: 0.3;
+}
+
+.case-motes {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.mote--case {
+  width: 2px;
+  height: 2px;
+  opacity: 0.2;
+  box-shadow: 0 0 5px 1px rgba(237, 200, 119, 0.38);
+  animation-duration: 12s;
 }
 
 /* ── Floating HUD ── */
@@ -1131,6 +1208,7 @@ button {
 
 .dock-button,
 .explore-button {
+  position: relative;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -1138,6 +1216,7 @@ button {
   align-self: stretch;
   min-width: 118px;
   padding: 0 17px;
+  overflow: hidden;
   color: #322021;
   background: #d89e59;
   border: 0;
@@ -1150,10 +1229,12 @@ button {
   transition: filter 0.18s, transform 0.18s;
 }
 
-.dock-button:hover,
-.explore-button:hover {
-  filter: brightness(1.1);
-  transform: translateY(-2px);
+@media (hover: hover) {
+  .dock-button:hover,
+  .explore-button:hover {
+    filter: brightness(1.1);
+    transform: translateY(-2px);
+  }
 }
 
 .explore-button {
@@ -1182,6 +1263,51 @@ button {
   }
 }
 
+.ember-btn {
+  position: relative;
+  overflow: hidden;
+}
+
+.btn-motes {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.btn-motes i {
+  position: absolute;
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: #f7e7b4;
+  box-shadow: 0 0 12px 4px rgba(237, 200, 119, 0.95);
+  opacity: 0;
+  animation: btn-drift 2.6s ease-in infinite;
+}
+
+.btn-motes i:nth-child(1) { left: 10%; top: 72%; animation-delay: 0s; }
+.btn-motes i:nth-child(2) { left: 28%; top: 84%; animation-delay: -0.5s; width: 4px; height: 4px; }
+.btn-motes i:nth-child(3) { left: 46%; top: 66%; animation-delay: -1s; }
+.btn-motes i:nth-child(4) { left: 62%; top: 80%; animation-delay: -1.5s; width: 3px; height: 3px; }
+.btn-motes i:nth-child(5) { left: 76%; top: 58%; animation-delay: -2s; width: 4px; height: 4px; }
+.btn-motes i:nth-child(6) { left: 88%; top: 74%; animation-delay: -2.4s; width: 6px; height: 6px; }
+.btn-motes i:nth-child(7) { left: 18%; top: 54%; animation-delay: -1.8s; width: 3px; height: 3px; }
+
+@keyframes btn-drift {
+  0% {
+    opacity: 0;
+    transform: translate(0, 8px) scale(0.6);
+  }
+  18% {
+    opacity: 0.95;
+  }
+  100% {
+    opacity: 0;
+    transform: translate(-10px, -28px) scale(1.15);
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .scene-camera {
     transition: none;
@@ -1190,6 +1316,10 @@ button {
   *::before,
   *::after {
     animation-duration: 0.01ms !important;
+  }
+  .mote,
+  .btn-motes {
+    display: none;
   }
 }
 

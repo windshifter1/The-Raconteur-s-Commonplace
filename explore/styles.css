@@ -133,12 +133,14 @@ textarea {
 .solid-cta,
 .ghost-cta,
 .mock-search button {
+  position: relative;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   gap: 9px;
   min-height: 44px;
   padding: 0 16px;
+  overflow: hidden;
   border: 2px solid rgba(215, 157, 87, 0.7);
   font: 700 11px var(--font-pixel);
   text-transform: uppercase;
@@ -155,10 +157,12 @@ textarea {
   box-shadow: 4px 4px 0 rgba(25, 18, 21, 0.55), inset 0 -4px 0 rgba(93, 48, 37, 0.28);
 }
 
-.walk-button:hover,
-.solid-cta:hover {
-  filter: brightness(1.08);
-  transform: translateY(-2px);
+@media (hover: hover) {
+  .walk-button:hover,
+  .solid-cta:hover {
+    filter: brightness(1.08);
+    transform: translateY(-2px);
+  }
 }
 
 .ghost-cta {
@@ -521,11 +525,13 @@ body.intake-open {
 }
 
 .dock-button {
+  position: relative;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   min-width: 118px;
   padding: 0 17px;
+  overflow: hidden;
   color: #322021;
   background: #d89e59;
   border: 0;
@@ -1103,5 +1109,56 @@ body.intake-open {
     width: 96px;
     height: 144px;
     flex-basis: 96px;
+  }
+}
+
+.ember-btn {
+  position: relative;
+  overflow: hidden;
+}
+
+.btn-motes {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.btn-motes i {
+  position: absolute;
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: #f7e7b4;
+  box-shadow: 0 0 12px 4px rgba(237, 200, 119, 0.95);
+  opacity: 0;
+  animation: btn-drift 2.6s ease-in infinite;
+}
+
+.btn-motes i:nth-child(1) { left: 10%; top: 72%; animation-delay: 0s; }
+.btn-motes i:nth-child(2) { left: 28%; top: 84%; animation-delay: -0.5s; width: 4px; height: 4px; }
+.btn-motes i:nth-child(3) { left: 46%; top: 66%; animation-delay: -1s; }
+.btn-motes i:nth-child(4) { left: 62%; top: 80%; animation-delay: -1.5s; width: 3px; height: 3px; }
+.btn-motes i:nth-child(5) { left: 76%; top: 58%; animation-delay: -2s; width: 4px; height: 4px; }
+.btn-motes i:nth-child(6) { left: 88%; top: 74%; animation-delay: -2.4s; width: 6px; height: 6px; }
+.btn-motes i:nth-child(7) { left: 18%; top: 54%; animation-delay: -1.8s; width: 3px; height: 3px; }
+
+@keyframes btn-drift {
+  0% {
+    opacity: 0;
+    transform: translate(0, 8px) scale(0.6);
+  }
+  18% {
+    opacity: 0.95;
+  }
+  100% {
+    opacity: 0;
+    transform: translate(-10px, -28px) scale(1.15);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .btn-motes {
+    display: none;
   }
 }

@@ -7,6 +7,7 @@ import { lookupIsbn } from './book-lookup.js';
 import { addToCollection, findInCollection, findLocalByIsbn } from './collection.js';
 import { playDuplicateBeep, playSuccessBeep, unlockBeep } from './barcode-beep.js';
 import { looksLikeBarcode, normalizeIsbn } from './isbn.js';
+import { sprinkleButtonMotes } from '../lib/ember-motes.js';
 
 const panel = document.querySelector('[data-intake-panel="barcode"]');
 const video = document.getElementById('scanner-video');
@@ -266,6 +267,7 @@ function bindResultActions() {
       if (action === 'accept') acceptBook();
     });
   });
+  sprinkleButtonMotes(resultEl);
 }
 
 function returnToReady(isbn13, ignoreMs = 0) {

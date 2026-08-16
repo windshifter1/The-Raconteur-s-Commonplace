@@ -1,5 +1,6 @@
 import { debounce, peekCachedResults, peekLocalHits, searchBooks } from './book-search.js';
 import { startBarcodePanel, stopBarcodePanel } from './barcode-intake.js';
+import { sprinkleButtonMotes } from '../lib/ember-motes.js';
 
 const overlay = document.getElementById('intake-overlay');
 const openBtn = document.getElementById('btn-open-intake');
@@ -305,3 +306,5 @@ inputEl?.addEventListener('search', () => {
 
 window.getSelectedIntakeBook = () => selectedBook;
 window.getLastIntakeQuery = () => lastFullQuery;
+
+sprinkleButtonMotes();
