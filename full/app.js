@@ -1017,9 +1017,20 @@ function finalizeUnitLayout(unit, { snap = true, edge = null } = {}) {
 
 /* ── Render ── */
 
+function bayJoinClasses(unit) {
+  const sorted = [...state.units].sort((a, b) => a.x - b.x || a.id.localeCompare(b.id));
+  const i = sorted.findIndex((u) => u.id === unit.id);
+  if (i < 0) return [];
+  const close = (left, right) => Math.abs(left.x + left.w - right.x) < 1;
+  const cls = [];
+  if (sorted[i - 1] && close(sorted[i - 1], unit)) cls.push('is-bay-join-w');
+  if (sorted[i + 1] && close(unit, sorted[i + 1])) cls.push('is-bay-join-e');
+  return cls;
+}
+
 function buildUnitDom(unit, unitIndex) {
   const root = document.createElement('div');
-  root.className = 'px-shelf';
+  root.className = ['px-shelf', ...bayJoinClasses(unit)].join(' ');
   root.dataset.unitId = unit.id;
   root.style.left = `${unit.x}%`;
   root.style.top = `${unit.y}%`;

@@ -332,15 +332,23 @@ button {
   inset: 0;
   transform-style: preserve-3d;
   border-style: solid;
-  border-color: #3e2a26;
+  border-color: #4a3226;
   border-width: var(--frame-edge);
-  border-bottom-width: calc(var(--frame-edge) * 1.375);
+  border-bottom-width: calc(var(--frame-edge) * 2.35);
   background: transparent;
   box-shadow:
-    inset 0 0 0 3px rgba(195, 127, 70, 0.3),
+    inset 0 0 0 3px rgba(195, 127, 70, 0.22),
     0 14px 0 rgba(20, 16, 19, 0.5),
     0 24px 48px rgba(0, 0, 0, 0.35);
   cursor: var(--cursor-active);
+}
+
+.px-shelf.is-bay-join-e .shelf-frame {
+  border-right-width: calc(var(--frame-edge) * 0.55);
+}
+
+.px-shelf.is-bay-join-w .shelf-frame {
+  border-left-width: calc(var(--frame-edge) * 0.55);
 }
 
 .shelf-box {
@@ -354,14 +362,20 @@ button {
   image-rendering: pixelated;
 }
 
-/* Inner back wall — holds the books */
+/* Inner back wall — holds the books (vertical walnut grain) */
 .shelf-back {
   inset: 0;
   transform: translateZ(calc(var(--shelf-d) * -1));
   background:
-    linear-gradient(90deg, rgba(0, 0, 0, 0.4), transparent 12%, transparent 88%, rgba(0, 0, 0, 0.35)),
-    linear-gradient(180deg, rgba(0, 0, 0, 0.3), transparent 14%),
-    #221816;
+    linear-gradient(90deg, rgba(0, 0, 0, 0.42), transparent 12%, transparent 88%, rgba(0, 0, 0, 0.36)),
+    linear-gradient(180deg, rgba(0, 0, 0, 0.32), transparent 14%),
+    repeating-linear-gradient(
+      90deg,
+      #2a1a16 0 2px,
+      #3d2a22 2px 5px,
+      #261814 5px 7px,
+      #4a3328 7px 10px
+    );
   box-shadow: inset 0 0 0 2px rgba(50, 34, 30, 0.9);
   overflow: hidden;
   backface-visibility: hidden;
@@ -377,6 +391,12 @@ button {
   transform-origin: left center;
   transform: rotateY(90deg);
   background:
+    repeating-linear-gradient(
+      90deg,
+      #7a503c 0 3px,
+      #5a3a2e 3px 6px,
+      #3a2620 6px 8px
+    ),
     linear-gradient(90deg, #7a503c 0%, #5a3a2e 30%, #3a2620 65%, #241816 100%);
   box-shadow: inset -2px 0 0 rgba(195, 127, 70, 0.28);
   backface-visibility: hidden;
@@ -391,6 +411,12 @@ button {
   transform-origin: right center;
   transform: rotateY(-90deg);
   background:
+    repeating-linear-gradient(
+      90deg,
+      #6a4434 0 3px,
+      #4a3028 3px 6px,
+      #2e1e1a 6px 8px
+    ),
     linear-gradient(270deg, #6a4434 0%, #4a3028 30%, #2e1e1a 65%, #1a1210 100%);
   box-shadow: inset 2px 0 0 rgba(0, 0, 0, 0.4);
   backface-visibility: hidden;
@@ -405,6 +431,12 @@ button {
   transform-origin: center top;
   transform: rotateX(-90deg);
   background:
+    repeating-linear-gradient(
+      180deg,
+      #8a5a44 0 4px,
+      #5a3a2e 4px 8px,
+      #2e1e1a 8px 10px
+    ),
     linear-gradient(180deg, #8a5a44 0%, #5a3a2e 40%, #2e1e1a 100%);
   box-shadow: inset 0 -2px 0 rgba(195, 127, 70, 0.28);
   backface-visibility: hidden;
@@ -419,6 +451,12 @@ button {
   transform-origin: center bottom;
   transform: rotateX(90deg);
   background:
+    repeating-linear-gradient(
+      180deg,
+      #6a4434 0 4px,
+      #4a3028 4px 8px,
+      #1e1412 8px 10px
+    ),
     linear-gradient(0deg, #6a4434 0%, #4a3028 45%, #1e1412 100%);
   box-shadow: inset 0 2px 0 rgba(0, 0, 0, 0.45);
   backface-visibility: hidden;
@@ -525,13 +563,19 @@ button {
 .shelf-plank {
   position: relative;
   z-index: 3;
-  flex: 0 0 11px;
+  flex: 0 0 13px;
   width: 100%;
   background:
-    linear-gradient(180deg, #c8945b 0 14%, #794a37 14% 72%, #5a3429 72%);
+    repeating-linear-gradient(
+      90deg,
+      #8a5a3c 0 10px,
+      #6e4530 10px 18px,
+      #5a3429 18px 22px
+    ),
+    linear-gradient(180deg, #a07048 0 16%, #6a4230 16% 72%, #4a3024 72%);
   box-shadow:
     0 3px 0 #2c1d20,
-    inset 0 1px 0 rgba(242, 210, 150, 0.35),
+    inset 0 1px 0 rgba(242, 210, 150, 0.28),
     inset 0 -2px 0 rgba(40, 24, 22, 0.45);
 }
 
