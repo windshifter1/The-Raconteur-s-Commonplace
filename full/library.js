@@ -8,9 +8,9 @@ export default {
   units: [
     {
       id: 'unit-bay-a',
-      x: 26.9,
+      x: 17.5,
       y: 0,
-      w: 18.48,
+      w: 26,
       h: 100,
       shelves: [
         { id: 'shelf-a-1', weight: 1, books: 30, boxes: [] },
@@ -24,9 +24,9 @@ export default {
     },
     {
       id: 'unit-bay-b',
-      x: 45.38,
+      x: 43.5,
       y: 0,
-      w: 9.24,
+      w: 13,
       h: 100,
       shelves: [
         { id: 'shelf-b-1', weight: 1, books: 18, boxes: [] },
@@ -40,9 +40,9 @@ export default {
     },
     {
       id: 'unit-bay-c',
-      x: 54.62,
+      x: 56.5,
       y: 0,
-      w: 18.48,
+      w: 26,
       h: 100,
       shelves: [
         { id: 'shelf-c-1', weight: 1, books: 32, boxes: [] },

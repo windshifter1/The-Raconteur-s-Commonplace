@@ -212,6 +212,9 @@ button {
   --shelf-d: 80px;
   --frame-edge: 16px;
   --wood-x: 40%;
+  --frame-left: var(--frame-edge);
+  --frame-right: var(--frame-edge);
+  --frame-bottom: calc(var(--frame-edge) * 2.35);
   position: absolute;
   transform: translateZ(calc(var(--shelf-d) + 28px));
   transform-style: preserve-3d;
@@ -341,33 +344,66 @@ button {
   position: absolute;
   inset: 0;
   transform-style: preserve-3d;
-  border-style: solid;
-  border-color: #4a3226;
-  border-width: var(--frame-edge);
-  border-bottom-width: calc(var(--frame-edge) * 2.35);
-  border-image-source: var(--wood-tex);
-  border-image-slice: 18%;
-  border-image-width: var(--frame-edge) var(--frame-edge) calc(var(--frame-edge) * 2.35) var(--frame-edge);
-  border-image-repeat: repeat;
+  border: 0;
+  padding: var(--frame-edge) var(--frame-right) var(--frame-bottom) var(--frame-left);
   background: transparent;
-  box-shadow: inset 0 0 0 2px rgba(40, 24, 20, 0.28);
   cursor: var(--cursor-active);
 }
 
-.px-shelf.is-bay-join-e .shelf-frame {
-  border-right-width: calc(var(--frame-edge) * 0.55);
-  border-image-width: var(--frame-edge) calc(var(--frame-edge) * 0.55) calc(var(--frame-edge) * 2.35) var(--frame-edge);
+.shelf-frame::before {
+  position: absolute;
+  inset: 0;
+  padding: inherit;
+  pointer-events: none;
+  content: '';
+  background-color: #4a3226;
+  background-image:
+    linear-gradient(180deg, rgba(255, 228, 186, 0.28), transparent 14px),
+    linear-gradient(90deg, rgba(255, 214, 160, 0.12), transparent 12px),
+    linear-gradient(270deg, rgba(18, 8, 6, 0.42), transparent 14px),
+    linear-gradient(0deg, rgba(12, 6, 4, 0.5), transparent 22px),
+    radial-gradient(ellipse 80% 36% at 32% 0%, rgba(255, 214, 150, 0.2), transparent 58%),
+    var(--wood-tex);
+  background-size: auto, auto, auto, auto, auto, 220px auto;
+  background-position: 0 0, 0 0, 0 0, 0 0, 0 0, var(--wood-x, 40%) 0;
+  background-repeat: no-repeat, no-repeat, no-repeat, no-repeat, no-repeat, repeat;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 228, 186, 0.28),
+    inset 0 -3px 0 rgba(20, 10, 8, 0.45);
+  -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  mask-composite: exclude;
 }
 
-.px-shelf.is-bay-join-w .shelf-frame {
-  border-left-width: calc(var(--frame-edge) * 0.55);
-  border-image-width: var(--frame-edge) var(--frame-edge) calc(var(--frame-edge) * 2.35) calc(var(--frame-edge) * 0.55);
+.px-shelf.is-bay-join-e {
+  --frame-right: calc(var(--frame-edge) * 0.55);
+}
+
+.px-shelf.is-bay-join-w {
+  --frame-left: calc(var(--frame-edge) * 0.55);
 }
 
 .shelf-box {
   position: absolute;
-  inset: 0;
+  top: var(--frame-edge);
+  right: var(--frame-right);
+  bottom: var(--frame-bottom);
+  left: var(--frame-left);
   transform-style: preserve-3d;
+}
+
+.shelf-box::after {
+  position: absolute;
+  inset: 0;
+  z-index: 6;
+  pointer-events: none;
+  content: '';
+  background:
+    radial-gradient(ellipse 75% 42% at 50% -8%, rgba(255, 206, 128, 0.16), transparent 62%),
+    linear-gradient(180deg, rgba(0, 0, 0, 0.08), transparent 22%);
+  mix-blend-mode: soft-light;
+  transform: translateZ(6px);
 }
 
 .shelf-face {
@@ -375,25 +411,28 @@ button {
   image-rendering: auto;
 }
 
-/* Inner back wall — holds the books (vertical walnut grain) */
+/* Inner back wall — shadowed cavity, vertical boards */
 .shelf-back {
   inset: 0;
   transform: translateZ(calc(var(--shelf-d) * -1));
-  background-color: #3a2822;
+  background-color: #2c1c18;
   background-image:
-    linear-gradient(90deg, rgba(0, 0, 0, 0.38), transparent 14%, transparent 86%, rgba(0, 0, 0, 0.32)),
-    linear-gradient(180deg, rgba(0, 0, 0, 0.28), transparent 16%),
+    radial-gradient(ellipse 90% 40% at 50% 0%, rgba(0, 0, 0, 0.42), transparent 58%),
+    linear-gradient(90deg, rgba(0, 0, 0, 0.55), transparent 16%, transparent 84%, rgba(0, 0, 0, 0.5)),
+    linear-gradient(180deg, rgba(0, 0, 0, 0.32), transparent 18%),
+    repeating-linear-gradient(90deg, transparent 0 32%, rgba(0, 0, 0, 0.16) 32% 33%, transparent 33% 66%, rgba(0, 0, 0, 0.12) 66% 67%, transparent 67% 100%),
     var(--wood-tex);
-  background-size: auto, auto, auto 118%;
-  background-position: 0 0, 0 0, var(--wood-x, 40%) 0;
+  background-size: auto, auto, auto, auto, 160% auto;
+  background-position: 0 0, 0 0, 0 0, 0 0, var(--wood-x, 40%) 0;
   background-repeat: no-repeat;
-  box-shadow: inset 0 0 0 1px rgba(50, 34, 30, 0.55);
+  box-shadow: inset 0 0 28px rgba(0, 0, 0, 0.35);
   overflow: hidden;
   backface-visibility: hidden;
   pointer-events: none;
+  filter: brightness(0.78) saturate(0.92);
 }
 
-/* Left inner wall */
+/* Left inner wall — lit at the front edge, falling into shadow */
 .shelf-left {
   top: 0;
   left: 0;
@@ -404,12 +443,12 @@ button {
   transform: rotateY(90deg);
   background-color: #3a2822;
   background-image:
-    linear-gradient(90deg, rgba(0, 0, 0, 0.08), rgba(0, 0, 0, 0.42)),
+    linear-gradient(90deg, rgba(255, 214, 160, 0.14), rgba(0, 0, 0, 0.58)),
     var(--wood-tex);
-  background-size: auto, auto 118%;
-  background-position: 0 0, calc(var(--wood-x, 40%) + 18%) 0;
+  background-size: auto, auto 130%;
+  background-position: 0 0, calc(var(--wood-x, 40%) + 12%) 0;
   background-repeat: no-repeat;
-  box-shadow: inset -2px 0 0 rgba(195, 127, 70, 0.18);
+  box-shadow: inset -2px 0 0 rgba(232, 190, 120, 0.16);
   backface-visibility: hidden;
 }
 
@@ -424,16 +463,16 @@ button {
   transform: rotateY(-90deg);
   background-color: #3a2822;
   background-image:
-    linear-gradient(270deg, rgba(0, 0, 0, 0.08), rgba(0, 0, 0, 0.48)),
+    linear-gradient(270deg, rgba(255, 214, 160, 0.08), rgba(0, 0, 0, 0.62)),
     var(--wood-tex);
-  background-size: auto, auto 118%;
-  background-position: 0 0, calc(var(--wood-x, 40%) - 22%) 0;
+  background-size: auto, auto 130%;
+  background-position: 0 0, calc(var(--wood-x, 40%) - 18%) 0;
   background-repeat: no-repeat;
-  box-shadow: inset 2px 0 0 rgba(0, 0, 0, 0.35);
+  box-shadow: inset 2px 0 0 rgba(0, 0, 0, 0.4);
   backface-visibility: hidden;
 }
 
-/* Top inner wall — grain runs along the case width */
+/* Top / bottom — grain along the case, polished bevel */
 .shelf-top,
 .shelf-bottom {
   overflow: hidden;
@@ -449,7 +488,7 @@ button {
   width: 420%;
   height: 420%;
   content: '';
-  background: var(--wood-tex) var(--wood-x, 40%) 50% / 260px auto;
+  background: var(--wood-tex) var(--wood-x, 40%) 50% / 240px auto;
   transform: translate(-50%, -50%) rotate(90deg);
   pointer-events: none;
 }
@@ -469,11 +508,11 @@ button {
   height: var(--shelf-d);
   transform-origin: center top;
   transform: rotateX(-90deg);
-  box-shadow: inset 0 -2px 0 rgba(195, 127, 70, 0.18);
+  box-shadow: inset 0 -2px 0 rgba(232, 190, 120, 0.2);
 }
 
 .shelf-top::after {
-  background: linear-gradient(180deg, rgba(0, 0, 0, 0.06), rgba(0, 0, 0, 0.4));
+  background: linear-gradient(180deg, rgba(255, 224, 170, 0.16), rgba(0, 0, 0, 0.42));
 }
 
 .shelf-bottom {
@@ -483,11 +522,11 @@ button {
   height: var(--shelf-d);
   transform-origin: center bottom;
   transform: rotateX(90deg);
-  box-shadow: inset 0 2px 0 rgba(0, 0, 0, 0.4);
+  box-shadow: inset 0 3px 10px rgba(0, 0, 0, 0.45);
 }
 
 .shelf-bottom::after {
-  background: linear-gradient(0deg, rgba(0, 0, 0, 0.12), rgba(0, 0, 0, 0.45));
+  background: linear-gradient(0deg, rgba(40, 22, 16, 0.2), rgba(0, 0, 0, 0.55));
 }
 
 /* Floor */
@@ -596,8 +635,9 @@ button {
   overflow: hidden;
   background: #4a3226;
   box-shadow:
-    inset 0 1px 0 rgba(242, 210, 150, 0.2),
-    inset 0 -2px 0 rgba(40, 24, 22, 0.4);
+    0 4px 10px rgba(0, 0, 0, 0.35),
+    inset 0 1px 0 rgba(255, 228, 186, 0.32),
+    inset 0 -2px 0 rgba(24, 12, 10, 0.5);
 }
 
 .shelf-plank::before {
@@ -607,9 +647,18 @@ button {
   width: 420%;
   height: 420%;
   content: '';
-  background: var(--wood-tex) center / 220px auto;
+  background: var(--wood-tex) var(--wood-x, 40%) 50% / 220px auto;
   transform: translate(-50%, -50%) rotate(90deg);
   pointer-events: none;
+  filter: contrast(1.1) saturate(1.05);
+}
+
+.shelf-plank::after {
+  position: absolute;
+  inset: 0;
+  content: '';
+  pointer-events: none;
+  background: linear-gradient(180deg, rgba(255, 230, 186, 0.28), transparent 38%, rgba(0, 0, 0, 0.38));
 }
 
 .is-editing .shelf-plank.is-draggable {
