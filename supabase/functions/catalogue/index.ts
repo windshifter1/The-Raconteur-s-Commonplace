@@ -39,13 +39,22 @@ async function loadAccount() {
     .select('id, name, slug')
     .eq('slug', ACCOUNT_SLUG)
     .maybeSingle();
-  if (error) throw error;
-  if (!data) throw new Error('Catalogue account was not found.');
+  if (error) {
+    if (/accounts|schema cache|PGRST205|42P01/i.test(error.message || '')) return null;
+    throw error;
+  }
   return data;
 }
 
 async function loadData() {
   const account = await loadAccount();
+  if (!account) {
+    const shelvesRes = await supabase.from('shelves').select('*').order('sort_order', { ascending: true });
+    if (shelvesRes.error) throw shelvesRes.error;
+    const booksRes = await supabase.from('books').select('*').order('title', { ascending: true });
+    if (booksRes.error) throw booksRes.error;
+    return { account: null, shelves: shelvesRes.data || [], books: booksRes.data || [] };
+  }
   const { data, error } = await supabase
     .from('accounts')
     .select('shelves(*), books(*)')
@@ -61,14 +70,11 @@ async function loadData() {
   return { account, shelves, books };
 }
 
-async function findBook(id: string, accountId: string) {
+async function findBook(id: string, accountId: string | null) {
   if (!id) return null;
-  const { data, error } = await supabase
-    .from('books')
-    .select('*')
-    .eq('id', id)
-    .eq('account_id', accountId)
-    .maybeSingle();
+  let query = supabase.from('books').select('*').eq('id', id);
+  if (accountId) query = query.eq('account_id', accountId);
+  const { data, error } = await query.maybeSingle();
   if (error) throw error;
   return data;
 }
@@ -90,7 +96,7 @@ async function renderView(opts: {
   let editBook = null;
 
   if (view === 'book') {
-    editBook = await findBook(opts.id || '', account.id);
+    editBook = await findBook(opts.id || '', account?.id || null);
   }
 
   return htmlResponse(
@@ -178,10 +184,8 @@ Deno.serve(async (req) => {
       }
       if (action === 'create-book') {
         const account = await loadAccount();
-        const { error } = await supabase.from('books').insert({
-          ...payload,
-          account_id: account.id,
-        });
+        const row = account ? { ...payload, account_id: account.id } : payload;
+        const { error } = await supabase.from('books').insert(row);
         if (error) throw error;
         return await renderView({
           actionBase,
@@ -191,11 +195,9 @@ Deno.serve(async (req) => {
       }
       const id = String(form.get('id') || '');
       const account = await loadAccount();
-      const { error } = await supabase
-        .from('books')
-        .update(payload)
-        .eq('id', id)
-        .eq('account_id', account.id);
+      let update = supabase.from('books').update(payload).eq('id', id);
+      if (account) update = update.eq('account_id', account.id);
+      const { error } = await update;
       if (error) throw error;
       return await renderView({
         actionBase,
@@ -208,11 +210,9 @@ Deno.serve(async (req) => {
     if (action === 'delete-book') {
       const id = String(form.get('id') || '');
       const account = await loadAccount();
-      const { error } = await supabase
-        .from('books')
-        .delete()
-        .eq('id', id)
-        .eq('account_id', account.id);
+      let del = supabase.from('books').delete().eq('id', id);
+      if (account) del = del.eq('account_id', account.id);
+      const { error } = await del;
       if (error) throw error;
       return await renderView({
         actionBase,
@@ -232,19 +232,20 @@ Deno.serve(async (req) => {
         });
       }
       const account = await loadAccount();
-      const { data: existing } = await supabase
+      let existingQuery = supabase
         .from('shelves')
         .select('sort_order')
-        .eq('account_id', account.id)
         .order('sort_order', { ascending: false })
         .limit(1);
+      if (account) existingQuery = existingQuery.eq('account_id', account.id);
+      const { data: existing } = await existingQuery;
       const sort_order =
         ((existing && existing[0] && existing[0].sort_order) || 0) + 1;
       const { error } = await supabase.from('shelves').insert({
-        account_id: account.id,
         name,
         slug: slugify(name),
         sort_order,
+        ...(account ? { account_id: account.id } : {}),
       });
       if (error) throw error;
       return await renderView({

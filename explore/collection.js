@@ -142,7 +142,6 @@ export async function addToCollection(book) {
 
   const account = await loadAccount(config);
   const payload = {
-    account_id: account.id,
     title: String(book.title || '').trim() || 'Untitled',
     author: (book.authors || []).join(', ') || 'Unknown author',
     format: 'paperback',
@@ -156,6 +155,7 @@ export async function addToCollection(book) {
     keywords: 'intake, barcode',
     tags: ['intake', 'barcode'],
   };
+  if (account.id) payload.account_id = account.id;
 
   const url = booksUrl(config);
   if (!url) throw new Error('Catalogue is not configured.');
