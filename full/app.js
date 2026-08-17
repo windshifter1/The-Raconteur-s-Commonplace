@@ -36,8 +36,10 @@ const SCENE_MIN_H = 720;
 /** Extra bleed so the room still fills the frame on large screens (old ~inset). */
 const CAMERA_BLEED_X = 1.2;
 const CAMERA_BLEED_Y = 1.12;
-const ZOOM_MIN = 0.38;
+const ZOOM_MIN = 0.34;
 const ZOOM_MAX = 1.45;
+/** Camera sits back a touch so the whole case reads with room around it. */
+const VIEW_SCALE = 0.9;
 
 const world = document.getElementById('world');
 const stage = document.getElementById('stage');
@@ -298,7 +300,7 @@ function syncPortraitPinch() {
 }
 
 function resolvedZoom() {
-  const fit = autoFitZoom();
+  const fit = autoFitZoom() * VIEW_SCALE;
   const maxScale = ZOOM_MAX / Math.max(ZOOM_MIN, fit);
   const minScale = ZOOM_MIN / Math.max(ZOOM_MIN, fit);
   pinchScale = Math.min(maxScale, Math.max(minScale, pinchScale));

@@ -82,10 +82,13 @@ button {
   --scene-floor-pad: calc(
     clamp(20px, 6vh, 70px) + env(safe-area-inset-bottom) + var(--keyboard-inset, 0px) + 4.7rem + 10px
   );
+  /* How far the boards run toward the camera, past the bottom of the screen. */
+  --floor-reach: 520px;
   position: relative;
   min-height: 100dvh;
   overflow: hidden;
-  background: #1a1210;
+  /* Same base as the viewport so the strip behind the search bar reads as room, not a cut edge. */
+  background: var(--wall);
   isolation: isolate;
   color: #f0dfb6;
   cursor: var(--cursor-idle);
@@ -107,7 +110,11 @@ button {
   position: absolute;
   inset: 0;
   bottom: var(--scene-floor-pad);
-  overflow: hidden;
+  /* The measured box stops above the search bar — camera size, placement plane and
+     auto-fit all key off it — but the paint region runs to the bottom of the screen so
+     the floor never ends mid-air. */
+  overflow: visible;
+  clip-path: inset(0 0 calc(var(--scene-floor-pad) * -1) 0);
   touch-action: none;
   cursor: var(--cursor-idle);
   background: #2e2220;
@@ -451,8 +458,10 @@ button {
   left: -5%;
   right: -5%;
   bottom: 0;
-  height: 42%;
-  transform: rotateX(78deg);
+  /* Extra height plus a matching slide along the tilted plane pushes the near edge past
+     the screen while leaving the far edge — the wall/floor junction — exactly in place. */
+  height: calc(42% + var(--floor-reach));
+  transform: rotateX(78deg) translateY(var(--floor-reach));
   transform-origin: center bottom;
   background:
     repeating-linear-gradient(
@@ -838,7 +847,8 @@ button {
 /* Ambient overlay */
 .scene-ambient {
   position: absolute;
-  inset: 0;
+  /* Reaches down with the floor so the near-floor shading has no seam at the old cut line. */
+  inset: 0 0 calc(var(--scene-floor-pad) * -1) 0;
   pointer-events: none;
   background:
     radial-gradient(ellipse 55% 42% at 50% 40%, rgba(235, 170, 91, 0.08), transparent 68%),
