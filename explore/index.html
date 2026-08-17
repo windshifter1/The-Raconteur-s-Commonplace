@@ -76,6 +76,13 @@
 
           <article class="feature-tile">
             <p class="tile-kicker">Catalogue</p>
+            <h2>Full catalogue</h2>
+            <p>Every title in the archive as one list — filter by author or series, then sort it your way.</p>
+            <button type="button" class="ghost-cta" id="btn-open-catalogue">Open catalogue</button>
+          </article>
+
+          <article class="feature-tile">
+            <p class="tile-kicker">Catalogue</p>
             <h2>Add books</h2>
             <p>Search Open Library and Google Books, then keep a title ready for intake.</p>
             <button type="button" class="ghost-cta" id="btn-open-intake">Open intake</button>
@@ -186,7 +193,41 @@
       </section>
     </div>
 
+    <div class="intake-overlay" id="catalogue-overlay" hidden>
+      <section class="intake-window" role="dialog" aria-modal="true" aria-labelledby="catalogue-title">
+        <div class="search-results-head">
+          <p class="search-results-kicker" id="catalogue-title">Full catalogue</p>
+          <button type="button" class="search-results-close" id="catalogue-close" aria-label="Close full catalogue">
+            Close
+          </button>
+        </div>
+
+        <div class="catalogue-toolbar" id="catalogue-toolbar">
+          <div class="catalogue-menu">
+            <button type="button" class="intake-method catalogue-trigger" id="catalogue-filter" aria-expanded="false" aria-controls="catalogue-filter-panel">
+              Filter
+            </button>
+            <div class="catalogue-panel" id="catalogue-filter-panel" role="group" aria-label="Filter the catalogue" hidden></div>
+          </div>
+          <div class="catalogue-menu">
+            <button type="button" class="intake-method catalogue-trigger" id="catalogue-sort" aria-expanded="false" aria-controls="catalogue-sort-panel">
+              Sort
+            </button>
+            <div class="catalogue-panel" id="catalogue-sort-panel" role="group" aria-label="Sort the catalogue" hidden></div>
+          </div>
+        </div>
+
+        <p class="search-results-status" id="catalogue-status">Reading the catalogue…</p>
+        <div class="catalogue-chips" id="catalogue-chips" hidden></div>
+        <ul class="search-results-list" id="catalogue-list"></ul>
+        <div class="catalogue-more-wrap" id="catalogue-more-wrap" hidden>
+          <button type="button" class="catalogue-more" id="catalogue-more">Show more</button>
+        </div>
+      </section>
+    </div>
+
     <script type="module" src="./app.js"></script>
+    <script type="module" src="./catalogue-browser.js"></script>
     <script type="module" src="../pwa.js"></script>
   </body>
 </html>
