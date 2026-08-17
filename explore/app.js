@@ -1,4 +1,4 @@
-import { debounce, peekCachedResults, peekLocalHits, searchBooks } from './book-search.js';
+import { searchBooks } from './book-search.js';
 import { startBarcodePanel, stopBarcodePanel } from './barcode-intake.js';
 import { closeBookPreview, isPreviewOpen, openBookPreview } from './book-preview.js';
 import { sprinkleButtonMotes } from '../lib/ember-motes.js';
@@ -8,20 +8,14 @@ const openBtn = document.getElementById('btn-open-intake');
 const closeBtn = document.getElementById('intake-close');
 const inputEl = document.getElementById('intake-search');
 const searchBtn = document.getElementById('btn-intake-search');
-const suggestEl = document.getElementById('intake-suggest');
 const statusEl = document.getElementById('intake-status');
 const listEl = document.getElementById('intake-list');
 const selectedEl = document.getElementById('intake-selected');
-const suggestBusy = document.getElementById('intake-suggest-busy');
 
 /** @type {object | null} */
 let selectedBook = null;
 let lastFullQuery = '';
-let suggestSeq = 0;
 let fullSeq = 0;
-let suggestSuppressed = false;
-/** @type {AbortController | null} */
-let suggestAbort = null;
 
 function escapeHtml(value) {
   return String(value ?? '')
@@ -65,25 +59,7 @@ function setStatus(text) {
   if (statusEl) statusEl.textContent = text;
 }
 
-function hideSuggest() {
-  if (!suggestEl) return;
-  suggestEl.hidden = true;
-  suggestEl.innerHTML = '';
-  if (suggestBusy) suggestBusy.hidden = true;
-}
-
-const onTyped = debounce(() => runSuggest(inputEl?.value), 80);
-
-function suppressSuggest() {
-  suggestSuppressed = true;
-  onTyped.cancel();
-  suggestAbort?.abort();
-  suggestSeq += 1;
-  hideSuggest();
-}
-
 function setMethod(name) {
-  if (name !== 'search') suppressSuggest();
   closeBookPreview();
   overlay?.querySelectorAll('[data-intake-method]').forEach((btn) => {
     btn.setAttribute('aria-pressed', String(btn.dataset.intakeMethod === name));
@@ -110,7 +86,6 @@ function closeIntake() {
   overlay.hidden = true;
   document.body.classList.remove('intake-open');
   closeBookPreview();
-  hideSuggest();
   inputEl?.blur();
   stopBarcodePanel();
 }
@@ -173,34 +148,6 @@ function renderResults(hits, { empty, bothFailed, errors }) {
   sprinkleButtonMotes(listEl);
 }
 
-function renderSuggest(hits) {
-  if (!suggestEl || suggestSuppressed) return;
-  if (!hits.length) {
-    hideSuggest();
-    return;
-  }
-  suggestEl.hidden = false;
-  suggestEl.innerHTML = hits
-    .slice(0, 8)
-    .map((hit, i) => `<button type="button" class="intake-suggest-item" data-suggest-index="${i}">
-        ${coverHtml(hit, true)}
-        <span>
-          <span class="search-result-title">${escapeHtml(hit.title)} ${sourceTags(hit.source)}</span>
-          <span class="search-result-author">${escapeHtml(authorLine(hit))}</span>
-        </span>
-      </button>`)
-    .join('');
-  suggestEl.querySelectorAll('[data-suggest-index]').forEach((btn) => {
-    btn.addEventListener('click', () => {
-      const hit = hits[Number(btn.dataset.suggestIndex)];
-      if (inputEl) inputEl.value = hit.title;
-      suppressSuggest();
-      selectHit(hit);
-      runFullSearch(hit.title);
-    });
-  });
-}
-
 function selectHit(hit) {
   if (!hit) return;
   selectedBook = hit;
@@ -226,54 +173,12 @@ async function runFullSearch(raw) {
     return;
   }
   lastFullQuery = q;
-  suppressSuggest();
   const seq = ++fullSeq;
   setStatus('Searching Open Library and Google Books…');
   renderSkeletons();
   const out = await searchBooks(q, { limit: 24 });
   if (seq !== fullSeq) return;
   renderResults(out.results, out);
-}
-
-async function runSuggest(raw) {
-  if (suggestSuppressed) return;
-  const q = String(raw ?? '').trim();
-  if (q.length < 2) {
-    hideSuggest();
-    return;
-  }
-  const seq = ++suggestSeq;
-  suggestAbort?.abort();
-  suggestAbort = new AbortController();
-  const out = await searchBooks(q, { limit: 8, signal: suggestAbort.signal });
-  if (seq !== suggestSeq || suggestSuppressed || out.aborted) return;
-  if (suggestBusy) suggestBusy.hidden = true;
-  if (q === String(inputEl?.value || '').trim()) renderSuggest(out.results);
-}
-
-function onIntakeInput() {
-  suggestSuppressed = false;
-  const q = String(inputEl?.value || '').trim();
-  if (q.length < 2) {
-    onTyped.cancel();
-    hideSuggest();
-    return;
-  }
-  const cached = peekCachedResults(q);
-  if (cached !== null) {
-    onTyped.cancel();
-    if (suggestBusy) suggestBusy.hidden = true;
-    renderSuggest(cached.slice(0, 8));
-    return;
-  }
-  const local = peekLocalHits(q).slice(0, 8);
-  if (local.length) {
-    renderSuggest(local);
-    if (suggestBusy) suggestBusy.hidden = true;
-  } else if (suggestBusy) {
-    suggestBusy.hidden = false;
-  }
-  onTyped();
 }
 
 openBtn?.addEventListener('click', openIntake);
@@ -294,27 +199,16 @@ overlay?.querySelectorAll('[data-intake-method]').forEach((btn) => {
 const formEl = document.getElementById('intake-form');
 formEl?.addEventListener('submit', (e) => {
   e.preventDefault();
-  suppressSuggest();
   runFullSearch();
 });
 searchBtn?.addEventListener('click', (e) => {
   e.preventDefault();
-  suppressSuggest();
   runFullSearch();
 });
 inputEl?.addEventListener('keydown', (e) => {
   if (e.key === 'Enter') {
     e.preventDefault();
-    suppressSuggest();
     runFullSearch();
-  }
-  if (e.key === 'Escape') suppressSuggest();
-});
-inputEl?.addEventListener('input', onIntakeInput);
-inputEl?.addEventListener('search', () => {
-  if (!String(inputEl.value || '').trim()) {
-    suppressSuggest();
-    suggestSuppressed = false;
   }
 });
 
