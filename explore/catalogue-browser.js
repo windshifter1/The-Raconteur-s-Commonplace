@@ -6,12 +6,14 @@
 import config from './config.js';
 import { booksUrl, loadAccountCatalogue, restHeaders } from '../lib/account-catalogue.js';
 import { forgetLocalByIsbn } from './collection.js';
+import { booksToCsv, downloadCsv } from './catalogue-csv.js';
 
 const overlay = document.getElementById('catalogue-overlay');
 const openBtn = document.getElementById('btn-open-catalogue');
 const openEditBtn = document.getElementById('btn-open-catalogue-edit');
 const closeBtn = document.getElementById('catalogue-close');
 const editBtn = document.getElementById('catalogue-edit');
+const exportCsvBtn = document.getElementById('catalogue-export-csv');
 const editNote = document.getElementById('catalogue-edit-note');
 const alertEl = document.getElementById('catalogue-alert');
 const statusEl = document.getElementById('catalogue-status');
@@ -184,11 +186,32 @@ function bookMatches(book, skipFacetId = '') {
   return true;
 }
 
-function visibleBooks() {
+function sortedLibrary() {
   const sort = sortById(sortId);
   return (books || [])
-    .filter((book) => bookMatches(book))
+    .slice()
     .sort((a, b) => sort.cmp(a, b) || collator.compare(text(a.title), text(b.title)));
+}
+
+function visibleBooks() {
+  return sortedLibrary().filter((book) => bookMatches(book));
+}
+
+function exportCatalogueCsv() {
+  if (!books) {
+    setAlert('Reading the catalogue…');
+    ensureBooks().then(() => {
+      if (books) exportCatalogueCsv();
+    });
+    return;
+  }
+  const rows = sortedLibrary();
+  downloadCsv(booksToCsv(rows), 'catalogue.csv');
+  setAlert(
+    rows.length
+      ? `Exported ${rows.length} title${rows.length === 1 ? '' : 's'} as CSV.`
+      : 'Exported an empty catalogue (header only).',
+  );
 }
 
 function facetCounts(facet) {
@@ -636,6 +659,10 @@ closeBtn?.addEventListener('click', closeCatalogue);
 editBtn?.addEventListener('click', () => {
   closePanels();
   setEditing(!editing);
+});
+exportCsvBtn?.addEventListener('click', () => {
+  closePanels();
+  exportCatalogueCsv();
 });
 overlay?.addEventListener('click', (e) => {
   if (e.target === overlay) closeCatalogue();
