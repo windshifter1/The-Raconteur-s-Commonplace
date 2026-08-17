@@ -142,10 +142,23 @@ function fingerprint(hit) {
   return `ta:${title}|${author}|${year}`;
 }
 
+/** ISBN first, then cover — applied when merging duplicates and ordering results. */
+export function catalogRank(hit) {
+  return (hit?.isbn ? 2 : 0) + (hit?.coverUrl ? 1 : 0);
+}
+
 function richer(a, b) {
   const score = (h) =>
-    (h.coverUrl ? 4 : 0) + (h.isbn ? 2 : 0) + (h.publisher ? 1 : 0) + h.authors.length;
+    catalogRank(h) * 10 + (h.publisher ? 1 : 0) + h.authors.length;
   return score(b) > score(a) ? b : a;
+}
+
+/** Stable: listings with an ISBN rise first; among those, jackets rise next. */
+export function preferCatalogHits(hits) {
+  return (hits || [])
+    .map((hit, index) => ({ hit, index, rank: catalogRank(hit) }))
+    .sort((a, b) => b.rank - a.rank || a.index - b.index)
+    .map((entry) => entry.hit);
 }
 
 export function mergeHits(list) {
@@ -297,7 +310,7 @@ async function fetchSearch(q, opts) {
     };
   }
 
-  const results = Array.isArray(payload.results) ? payload.results : [];
+  const results = preferCatalogHits(Array.isArray(payload.results) ? payload.results : []);
   const errors = payload.errors || {};
   const bothFailed = !results.length && Boolean(errors.openLibrary && errors.googleBooks);
   const value = {

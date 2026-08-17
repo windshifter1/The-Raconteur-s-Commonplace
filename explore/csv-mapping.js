@@ -225,7 +225,8 @@ export function applyLookup(draft, book) {
 
 /**
  * Score a search hit against the CSV row so the closest edition wins.
- * Open Library outranks Google Books on equal footing.
+ * ISBN and cover are applied afterwards as a stable preference, not here —
+ * they must not overturn a clearer title match.
  */
 export function scoreHit(hit, draft) {
   const norm = (value) => textOf(value).toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
@@ -243,11 +244,18 @@ export function scoreHit(hit, draft) {
   else if (wantAuthor && hitAuthors.some((a) => a.includes(wantAuthor) || wantAuthor.includes(a))) score += 3;
 
   if (draft.year && hit.publicationYear === draft.year) score += 2;
-  if (hit.isbn) score += 1;
-  if (hit.coverUrl) score += 1;
-  if (hit.source === 'open-library') score += 2;
-  else if (hit.source === 'both') score += 1;
   return score;
+}
+
+/** ISBN first, then cover — used when title/author scores tie. */
+export function catalogRank(hit) {
+  return (hit?.isbn ? 2 : 0) + (hit?.coverUrl ? 1 : 0);
+}
+
+function sourceRank(hit) {
+  if (hit?.source === 'open-library') return 2;
+  if (hit?.source === 'both') return 1;
+  return 0;
 }
 
 /** How far apart two scores may be and still count as a tie. */
@@ -262,7 +270,12 @@ export function rankHits(hits, draft) {
   return (hits || [])
     .map((hit) => ({ hit, score: scoreHit(hit, draft) }))
     .filter((entry) => entry.score > 0)
-    .sort((a, b) => b.score - a.score);
+    .sort((a, b) => {
+      if (b.score !== a.score) return b.score - a.score;
+      const completeness = catalogRank(b.hit) - catalogRank(a.hit);
+      if (completeness) return completeness;
+      return sourceRank(b.hit) - sourceRank(a.hit);
+    });
 }
 
 export function pickBestHit(hits, draft) {

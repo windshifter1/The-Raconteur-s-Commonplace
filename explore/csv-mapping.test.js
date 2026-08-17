@@ -6,6 +6,7 @@ import { booksToCsv } from './catalogue-csv.js';
 import {
   applyLookup,
   canonicalField,
+  catalogRank,
   draftToPayload,
   draftsFromCsv,
   hitToBook,
@@ -16,6 +17,7 @@ import {
   pickBestHit,
   rankHits,
   sameWork,
+  scoreHit,
   splitAuthors,
   workCandidates,
   titleAuthorKey,
@@ -192,6 +194,32 @@ assert(!sameWork(girlHits[0], { title: 'The Girl on the Train', authors: ['Someo
 
 assertEqual(rankHits(duneHits, dune).map((entry) => entry.hit.publicationYear), [1965, 2005, 1969], 'ranking is best first');
 assertEqual(workCandidates(rankHits(girlHits, girl), 1).length, 1, 'the shortlist honours its limit');
+
+/* Prefer listings that carry an ISBN, then ones that carry a cover */
+const isbnDraft = { title: 'Same Title', author: 'Same Author', authors: ['Same Author'], year: null };
+const completenessHits = [
+  { title: 'Same Title', authors: ['Same Author'], publicationYear: null, isbn: null, coverUrl: 'c', source: 'open-library' },
+  { title: 'Same Title', authors: ['Same Author'], publicationYear: null, isbn: '9780441172719', coverUrl: null, source: 'google-books' },
+  { title: 'Same Title', authors: ['Same Author'], publicationYear: null, isbn: '9780441013593', coverUrl: 'both', source: 'open-library' },
+  { title: 'Same Title', authors: ['Same Author'], publicationYear: null, isbn: null, coverUrl: null, source: 'google-books' },
+];
+assertEqual(
+  rankHits(completenessHits, isbnDraft).map((entry) => entry.hit.coverUrl || entry.hit.isbn || 'bare'),
+  ['both', '9780441172719', 'c', 'bare'],
+  'ISBN + cover, then ISBN alone, then cover alone, then bare',
+);
+assert(
+  catalogRank(completenessHits[1]) > catalogRank(completenessHits[0]),
+  'an ISBN listing outranks a cover-only listing',
+);
+assert(
+  catalogRank(completenessHits[2]) > catalogRank(completenessHits[1]),
+  'among ISBN listings, a cover wins',
+);
+assert(
+  pickBestHit(completenessHits, isbnDraft) === completenessHits[2],
+  'the best pick is the ISBN listing that also has a cover',
+);
 
 /* Refresh replaces details but keeps the old cover selectable */
 const refreshed = applyLookup(own, {

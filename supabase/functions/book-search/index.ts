@@ -240,10 +240,23 @@ function fingerprint(hit: SearchHit): string {
   return `ta:${title}|${author}|${year}`;
 }
 
+/** ISBN first, then cover — applied when merging duplicates and ordering results. */
+function catalogRank(hit: SearchHit): number {
+  return (hit.isbn ? 2 : 0) + (hit.coverUrl ? 1 : 0);
+}
+
 function richer(a: SearchHit, b: SearchHit): SearchHit {
   const score = (h: SearchHit) =>
-    (h.coverUrl ? 4 : 0) + (h.isbn ? 2 : 0) + (h.publisher ? 1 : 0) + h.authors.length;
+    catalogRank(h) * 10 + (h.publisher ? 1 : 0) + h.authors.length;
   return score(b) > score(a) ? b : a;
+}
+
+/** Stable: listings with an ISBN rise first; among those, jackets rise next. */
+function preferCatalogHits(hits: SearchHit[]): SearchHit[] {
+  return hits
+    .map((hit, index) => ({ hit, index, rank: catalogRank(hit) }))
+    .sort((a, b) => b.rank - a.rank || a.index - b.index)
+    .map((entry) => entry.hit);
 }
 
 function mergeHits(list: SearchHit[]): SearchHit[] {
@@ -607,7 +620,7 @@ Deno.serve(async (req) => {
   }
 
   return json({
-    results: interleaveSources(mergeHits(hits)).slice(0, limit),
+    results: preferCatalogHits(interleaveSources(mergeHits(hits))).slice(0, limit),
     errors,
     query: q,
     googleConfigured: Boolean(googleKey),
