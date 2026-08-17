@@ -8,13 +8,8 @@
   --wood-deep: #271b1d;
   --wood: #5a3429;
   --wood-light: #a26443;
-  --wood-tex: url('./assets/wood-walnut.png');
-  /* Stylized palette ramp — grain only modulates these, never recolors them. */
-  --wood-lit: #6b4030;
-  --wood-shade: #43261e;
-  --wood-cavity: #33201a;
-  --wood-line: #241413;
-  --wood-sheen: rgba(242, 210, 150, 0.28);
+  --wood-frame: #3e2a26;
+  --wood-edge: rgba(195, 127, 70, 0.3);
   --wall: #2e2220;
   --wall-panel: #3a2a28;
   --ember: #e4a557;
@@ -178,14 +173,6 @@ button {
   box-shadow: inset 0 0 0 4px #392529;
 }
 
-.unit-layer,
-.px-shelf,
-.px-shelf *,
-.px-shelf *::before,
-.px-shelf *::after {
-  image-rendering: auto;
-}
-
 .px-arch {
   position: absolute;
   inset: 0 0 auto;
@@ -217,7 +204,6 @@ button {
 .px-shelf {
   --shelf-d: 80px;
   --frame-edge: 16px;
-  --wood-x: 40%;
   --frame-left: var(--frame-edge);
   --frame-right: var(--frame-edge);
   --frame-bottom: calc(var(--frame-edge) * 2.35);
@@ -362,18 +348,7 @@ button {
   padding: inherit;
   pointer-events: none;
   content: '';
-  background-color: var(--wood);
-  background-image:
-    linear-gradient(180deg, var(--wood-sheen) 0 3px, transparent 3px),
-    linear-gradient(0deg, rgba(36, 20, 19, 0.55) 0 4px, transparent 4px),
-    linear-gradient(90deg, rgba(242, 210, 150, 0.1) 0 2px, transparent 2px),
-    linear-gradient(270deg, rgba(36, 20, 19, 0.42) 0 3px, transparent 3px),
-    var(--wood-tex);
-  background-size: auto, auto, auto, auto, 190px auto;
-  background-position: 0 0, 0 0, 0 0, 0 0, var(--wood-x, 40%) 0;
-  background-repeat: no-repeat, no-repeat, no-repeat, no-repeat, repeat;
-  background-blend-mode: normal, normal, normal, normal, overlay;
-  box-shadow: inset 0 0 0 1px var(--wood-line);
+  background: var(--wood-frame);
   -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
   -webkit-mask-composite: xor;
   mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
@@ -395,51 +370,40 @@ button {
   bottom: var(--frame-bottom);
   left: var(--frame-left);
   transform-style: preserve-3d;
+  /* Warm line around the opening — the frame ring is drawn by a masked pseudo-element here,
+     so this stands in for the inset highlight a real border would give. */
+  box-shadow: 0 0 0 3px var(--wood-edge);
 }
 
 .shelf-face {
   position: absolute;
-  image-rendering: auto;
+  image-rendering: pixelated;
 }
 
-/* Inner back wall — deep cavity, warm wood still visible */
+/* Inner back wall */
 .shelf-back {
   inset: 0;
   transform: translateZ(calc(var(--shelf-d) * -1));
-  background-color: var(--wood-cavity);
-  background-image:
-    linear-gradient(90deg, rgba(23, 12, 10, 0.5) 0 6px, transparent 6px),
-    linear-gradient(270deg, rgba(23, 12, 10, 0.5) 0 6px, transparent 6px),
-    linear-gradient(180deg, rgba(23, 12, 10, 0.45) 0 8px, transparent 8px),
-    var(--wood-tex);
-  background-size: auto, auto, auto, 170% auto;
-  background-position: 0 0, 0 0, 0 0, var(--wood-x, 40%) 0;
-  background-repeat: no-repeat;
-  background-blend-mode: normal, normal, normal, soft-light;
-  box-shadow: inset 0 0 0 1px rgba(23, 12, 10, 0.6);
+  background:
+    linear-gradient(90deg, rgba(0, 0, 0, 0.4), transparent 12%, transparent 88%, rgba(0, 0, 0, 0.35)),
+    linear-gradient(180deg, rgba(0, 0, 0, 0.3), transparent 14%),
+    #221816;
+  box-shadow: inset 0 0 0 2px rgba(50, 34, 30, 0.9);
   overflow: hidden;
   backface-visibility: hidden;
   pointer-events: none;
 }
 
-/* Left inner wall — lit at the front edge, falling into shadow */
+/* Left inner wall */
 .shelf-left {
   top: 0;
   left: 0;
   width: var(--shelf-d);
   height: 100%;
-  overflow: hidden;
   transform-origin: left center;
   transform: rotateY(90deg);
-  background-color: var(--wood-shade);
-  background-image:
-    linear-gradient(90deg, rgba(242, 210, 150, 0.12), rgba(242, 210, 150, 0.12)),
-    var(--wood-tex);
-  background-size: auto, auto 130%;
-  background-position: 0 0, calc(var(--wood-x, 40%) + 12%) 0;
-  background-repeat: no-repeat;
-  background-blend-mode: normal, soft-light;
-  box-shadow: inset -2px 0 0 rgba(242, 210, 150, 0.18);
+  background: linear-gradient(90deg, #7a503c 0%, #5a3a2e 30%, #3a2620 65%, #241816 100%);
+  box-shadow: inset -2px 0 0 rgba(195, 127, 70, 0.28);
   backface-visibility: hidden;
 }
 
@@ -449,53 +413,14 @@ button {
   right: 0;
   width: var(--shelf-d);
   height: 100%;
-  overflow: hidden;
   transform-origin: right center;
   transform: rotateY(-90deg);
-  background-color: var(--wood-cavity);
-  background-image:
-    linear-gradient(270deg, rgba(23, 12, 10, 0.22), rgba(23, 12, 10, 0.22)),
-    var(--wood-tex);
-  background-size: auto, auto 130%;
-  background-position: 0 0, calc(var(--wood-x, 40%) - 18%) 0;
-  background-repeat: no-repeat;
-  background-blend-mode: normal, soft-light;
-  box-shadow: inset 2px 0 0 rgba(23, 12, 10, 0.55);
+  background: linear-gradient(270deg, #6a4434 0%, #4a3028 30%, #2e1e1a 65%, #1a1210 100%);
+  box-shadow: inset 2px 0 0 rgba(0, 0, 0, 0.4);
   backface-visibility: hidden;
 }
 
-/* Top / bottom — grain along the case, polished bevel */
-.shelf-top,
-.shelf-bottom {
-  overflow: hidden;
-  background-color: var(--wood-lit);
-  backface-visibility: hidden;
-  isolation: isolate;
-}
-
-.shelf-top::before,
-.shelf-bottom::before {
-  position: absolute;
-  left: 50%;
-  top: 50%;
-  width: 420%;
-  height: 420%;
-  content: '';
-  background: var(--wood-tex) var(--wood-x, 40%) 50% / 200px auto;
-  transform: translate(-50%, -50%) rotate(90deg);
-  pointer-events: none;
-  mix-blend-mode: overlay;
-  opacity: 0.85;
-}
-
-.shelf-top::after,
-.shelf-bottom::after {
-  position: absolute;
-  inset: 0;
-  content: '';
-  pointer-events: none;
-}
-
+/* Top inner wall */
 .shelf-top {
   top: 0;
   left: 0;
@@ -503,13 +428,12 @@ button {
   height: var(--shelf-d);
   transform-origin: center top;
   transform: rotateX(-90deg);
-  box-shadow: inset 0 -2px 0 rgba(242, 210, 150, 0.18);
+  background: linear-gradient(180deg, #8a5a44 0%, #5a3a2e 40%, #2e1e1a 100%);
+  box-shadow: inset 0 -2px 0 rgba(195, 127, 70, 0.28);
+  backface-visibility: hidden;
 }
 
-.shelf-top::after {
-  background: linear-gradient(180deg, var(--wood-sheen) 0 2px, transparent 2px 60%, rgba(36, 20, 19, 0.35) 60%);
-}
-
+/* Bottom inner wall / floor of case */
 .shelf-bottom {
   bottom: 0;
   left: 0;
@@ -517,11 +441,9 @@ button {
   height: var(--shelf-d);
   transform-origin: center bottom;
   transform: rotateX(90deg);
-  box-shadow: inset 0 3px 0 rgba(23, 12, 10, 0.5);
-}
-
-.shelf-bottom::after {
-  background: linear-gradient(0deg, rgba(23, 12, 10, 0.45) 0 55%, rgba(23, 12, 10, 0.25) 55%);
+  background: linear-gradient(0deg, #6a4434 0%, #4a3028 45%, #1e1412 100%);
+  box-shadow: inset 0 2px 0 rgba(0, 0, 0, 0.45);
+  backface-visibility: hidden;
 }
 
 /* Floor */
@@ -627,35 +549,11 @@ button {
   z-index: 3;
   flex: 0 0 13px;
   width: 100%;
-  overflow: hidden;
-  background: var(--wood);
-  isolation: isolate;
+  background: linear-gradient(180deg, #c8945b 0 14%, #794a37 14% 72%, #5a3429 72%);
   box-shadow:
-    0 3px 0 rgba(23, 12, 10, 0.4),
-    inset 0 2px 0 var(--wood-sheen),
-    inset 0 -3px 0 rgba(36, 20, 19, 0.55);
-}
-
-.shelf-plank::before {
-  position: absolute;
-  left: 50%;
-  top: 50%;
-  width: 420%;
-  height: 420%;
-  content: '';
-  background: var(--wood-tex) var(--wood-x, 40%) 50% / 180px auto;
-  transform: translate(-50%, -50%) rotate(90deg);
-  pointer-events: none;
-  mix-blend-mode: overlay;
-  opacity: 0.8;
-}
-
-.shelf-plank::after {
-  position: absolute;
-  inset: 0;
-  content: '';
-  pointer-events: none;
-  background: linear-gradient(180deg, rgba(242, 210, 150, 0.16) 0 40%, rgba(36, 20, 19, 0.32) 40%);
+    0 3px 0 #2c1d20,
+    inset 0 1px 0 rgba(242, 210, 150, 0.35),
+    inset 0 -2px 0 rgba(40, 24, 22, 0.45);
 }
 
 .is-editing .shelf-plank.is-draggable {

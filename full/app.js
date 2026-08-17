@@ -1099,7 +1099,6 @@ function buildUnitDom(unit, unitIndex) {
   root.style.height = `${unit.h}%`;
   root.style.setProperty('--shelf-d', `${state.depth}px`);
   root.style.setProperty('--frame-edge', `${state.edges}px`);
-  root.style.setProperty('--wood-x', `${8 + ((unitIndex * 37) % 72)}%`);
   if (selected.unitId === unit.id) root.classList.add('is-active-unit');
   if (selected.unitId === unit.id && selected.type === 'unit') root.classList.add('is-unit-selected');
 
