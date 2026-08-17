@@ -142,6 +142,63 @@ export async function findInCollection(normalized) {
   return findRemoteByIsbn(normalized);
 }
 
+/**
+ * Insert already-built book rows under the active account, in chunks so one
+ * oversized CSV cannot blow the request limit. Order is preserved.
+ * @param {object[]} rows book payloads (no id)
+ * @param {{ onProgress?: (done: number, total: number) => void, chunkSize?: number }} [opts]
+ * @returns {Promise<{ inserted: object[], failed: { row: object, message: string }[] }>}
+ */
+export async function insertBooks(rows, opts = {}) {
+  const list = Array.isArray(rows) ? rows.filter(Boolean) : [];
+  const inserted = [];
+  const failed = [];
+  if (!list.length) return { inserted, failed };
+
+  const url = booksUrl(config);
+  if (!url) throw new Error('Catalogue is not configured.');
+  const account = await loadAccount(config);
+  const chunkSize = Math.max(1, Math.min(100, Number(opts.chunkSize) || 40));
+
+  for (let i = 0; i < list.length; i += chunkSize) {
+    const chunk = list.slice(i, i + chunkSize).map((row) => (
+      account.id ? { ...row, account_id: account.id } : { ...row }
+    ));
+    let res;
+    try {
+      res = await fetch(url, {
+        method: 'POST',
+        headers: writeHeaders(),
+        body: JSON.stringify(chunk),
+      });
+    } catch {
+      for (const row of chunk) failed.push({ row, message: 'Network unavailable.' });
+      opts.onProgress?.(Math.min(i + chunk.length, list.length), list.length);
+      continue;
+    }
+    const body = await res.json().catch(() => []);
+    if (!res.ok) {
+      const message = body?.message || body?.error || `Could not add these books (${res.status}).`;
+      for (const row of chunk) failed.push({ row, message });
+    } else {
+      const saved = Array.isArray(body) ? body : [body];
+      saved.forEach((row, n) => {
+        inserted.push(row);
+        const normalized = normalizeIsbn(row?.isbn || chunk[n]?.isbn);
+        if (!normalized) return;
+        cacheLocal(asRecord({
+          ...row,
+          isbn: normalized.isbn13,
+          isbn13: normalized.isbn13,
+          isbn10: normalized.isbn10,
+        }));
+      });
+    }
+    opts.onProgress?.(Math.min(i + chunk.length, list.length), list.length);
+  }
+  return { inserted, failed };
+}
+
 export async function addToCollection(book) {
   const normalized = normalizeIsbn(book.isbn13 || book.isbn);
   if (!normalized) throw new Error('Cannot add a book without a valid ISBN.');

@@ -135,6 +135,7 @@
         <div class="intake-methods" role="tablist" aria-label="Intake method">
           <button type="button" class="intake-method" data-intake-method="search" aria-pressed="true">Search</button>
           <button type="button" class="intake-method" data-intake-method="barcode" aria-pressed="false">Barcode</button>
+          <button type="button" class="intake-method" data-intake-method="csv" aria-pressed="false">CSV file</button>
           <button type="button" class="intake-method" data-intake-method="cover" aria-pressed="false">Cover</button>
         </div>
 
@@ -182,6 +183,62 @@
                 <button type="submit" class="dock-button">Look up</button>
               </div>
             </form>
+          </div>
+        </div>
+
+        <div data-intake-panel="csv" hidden>
+          <div class="csv-stage" id="csv-stage-pick">
+            <p class="lede intake-copy">Upload a spreadsheet of books. Columns like title, author, isbn, year, publisher, description, and cover_url are read automatically — a Full catalogue export works as-is.</p>
+            <div class="csv-drop" id="csv-drop">
+              <p class="tile-kicker">CSV file</p>
+              <button type="button" class="solid-cta" id="csv-choose">Choose a .csv file</button>
+              <p class="csv-hint">Or drop the file here. Nothing is saved until you review the batch.</p>
+              <input type="file" id="csv-file" accept=".csv,text/csv" hidden />
+            </div>
+            <p class="search-results-status" id="csv-status">No file chosen yet.</p>
+          </div>
+
+          <div class="csv-stage" id="csv-stage-mode" hidden>
+            <div id="csv-mode-summary"></div>
+            <div class="csv-mode-grid">
+              <article class="csv-mode-card">
+                <p class="tile-kicker">Option one</p>
+                <h2>Keep existing data</h2>
+                <p>Use the titles, authors, and covers exactly as the CSV lists them.</p>
+                <button type="button" class="solid-cta" id="csv-mode-keep">Keep existing data</button>
+              </article>
+              <article class="csv-mode-card">
+                <p class="tile-kicker">Option two</p>
+                <h2>Refresh the data</h2>
+                <p>Match each row on Open Library first, then Google Books, and replace the details with a fresh listing.</p>
+                <button type="button" class="solid-cta" id="csv-mode-refresh">Refresh from Open Library / Google Books</button>
+              </article>
+            </div>
+            <button type="button" class="ghost-cta" id="csv-mode-back">Choose a different file</button>
+          </div>
+
+          <div class="csv-stage" id="csv-stage-review" hidden>
+            <p class="search-results-status" id="csv-review-status">Preparing the batch…</p>
+            <div class="csv-progress" id="csv-progress" hidden>
+              <div class="csv-progress-track" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
+                <span class="csv-progress-bar" id="csv-progress-bar"></span>
+              </div>
+              <p class="csv-progress-text" id="csv-progress-text">Working…</p>
+              <button type="button" class="catalogue-action" id="csv-stop" hidden>Stop</button>
+            </div>
+            <ul class="csv-list" id="csv-list"></ul>
+            <div class="catalogue-more-wrap" id="csv-more-wrap" hidden>
+              <button type="button" class="catalogue-more" id="csv-more">Show more</button>
+            </div>
+            <div class="scanner-actions csv-commit-row">
+              <button type="button" class="solid-cta" id="csv-commit">Add to catalogue</button>
+              <button type="button" class="ghost-cta" id="csv-restart">Start over</button>
+            </div>
+          </div>
+
+          <div class="csv-stage intake-placeholder" id="csv-stage-done" hidden>
+            <div id="csv-done-summary"></div>
+            <button type="button" class="solid-cta" id="csv-done-again">Import another CSV</button>
           </div>
         </div>
 
@@ -240,6 +297,7 @@
     </div>
 
     <script type="module" src="./app.js"></script>
+    <script type="module" src="./csv-intake.js"></script>
     <script type="module" src="./catalogue-browser.js"></script>
     <script type="module" src="../pwa.js"></script>
   </body>

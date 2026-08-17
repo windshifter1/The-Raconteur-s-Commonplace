@@ -7,6 +7,7 @@ import config from './config.js';
 import { booksUrl, loadAccountCatalogue, restHeaders } from '../lib/account-catalogue.js';
 import { forgetLocalByIsbn } from './collection.js';
 import { booksToCsv, downloadCsv } from './catalogue-csv.js';
+import { coverFileError, makeCoverUrl } from '../lib/cover-image.js';
 
 const overlay = document.getElementById('catalogue-overlay');
 const openBtn = document.getElementById('btn-open-catalogue');
@@ -35,11 +36,6 @@ const PAGE_SIZE = 60;
 /** Long facets stay usable by capping the rendered rows; the find box narrows them. */
 const VALUE_CAP = 60;
 const FIND_THRESHOLD = 12;
-/** Covers land in the public media bucket, downscaled to a jacket-sized JPEG. */
-const COVER_BUCKET = 'library-media';
-const COVER_EDGE = 640;
-const COVER_QUALITY = 0.82;
-const MAX_UPLOAD_BYTES = 12 * 1024 * 1024;
 const collator = new Intl.Collator(undefined, { sensitivity: 'base', numeric: true });
 
 /** @type {object[] | null} */
@@ -489,83 +485,19 @@ async function writeRow(id, method, body) {
   return Array.isArray(rows) ? rows[0] : rows;
 }
 
-function readImage(file) {
-  if (typeof createImageBitmap === 'function') return createImageBitmap(file);
-  return new Promise((resolve, reject) => {
-    const url = URL.createObjectURL(file);
-    const img = new Image();
-    img.onload = () => {
-      URL.revokeObjectURL(url);
-      resolve(img);
-    };
-    img.onerror = () => {
-      URL.revokeObjectURL(url);
-      reject(new Error('That image could not be read.'));
-    };
-    img.src = url;
-  });
-}
-
-async function toCoverBlob(file) {
-  const image = await readImage(file);
-  const width = image.width || image.naturalWidth;
-  const height = image.height || image.naturalHeight;
-  if (!width || !height) throw new Error('That image could not be read.');
-  const scale = Math.min(1, COVER_EDGE / Math.max(width, height));
-  const canvas = document.createElement('canvas');
-  canvas.width = Math.max(1, Math.round(width * scale));
-  canvas.height = Math.max(1, Math.round(height * scale));
-  canvas.getContext('2d')?.drawImage(image, 0, 0, canvas.width, canvas.height);
-  image.close?.();
-  return new Promise((resolve, reject) => {
-    canvas.toBlob(
-      (blob) => (blob ? resolve(blob) : reject(new Error('That image could not be prepared.'))),
-      'image/jpeg',
-      COVER_QUALITY,
-    );
-  });
-}
-
-function blobToDataUrl(blob) {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => resolve(String(reader.result || ''));
-    reader.onerror = () => reject(new Error('That image could not be prepared.'));
-    reader.readAsDataURL(blob);
-  });
-}
-
-/** A fresh filename each time keeps the CDN from serving the previous jacket. */
-async function uploadToBucket(id, blob) {
-  const root = String(config?.supabaseUrl || '').replace(/\/$/, '');
-  if (!root || !config?.supabaseAnonKey) return '';
-  const path = `covers/${encodeURIComponent(id)}-${Date.now()}.jpg`;
-  const res = await fetch(`${root}/storage/v1/object/${COVER_BUCKET}/${path}`, {
-    method: 'POST',
-    headers: restHeaders(config, { 'Content-Type': 'image/jpeg', 'x-upsert': 'true' }),
-    body: blob,
-  });
-  return res.ok ? `${root}/storage/v1/object/public/${COVER_BUCKET}/${path}` : '';
-}
-
 async function uploadCover(id, file) {
   const book = (books || []).find((row) => rowId(row) === id);
   if (!book || pending.has(id)) return;
-  if (!file.type.startsWith('image/')) {
-    setAlert('Pick an image file for the cover.', 'error');
-    return;
-  }
-  if (file.size > MAX_UPLOAD_BYTES) {
-    setAlert('That image is too large — try one under 12 MB.', 'error');
+  const problem = coverFileError(file);
+  if (problem) {
+    setAlert(problem, 'error');
     return;
   }
   pending.add(id);
   setAlert('Preparing the cover…');
   renderList();
   try {
-    const blob = await toCoverBlob(file);
-    // Bucket first; if media storage is unavailable the jacket rides along on the row.
-    const cover = (await uploadToBucket(id, blob)) || (await blobToDataUrl(blob));
+    const cover = await makeCoverUrl(config, file, id);
     const saved = await writeRow(id, 'PATCH', { cover_url: cover });
     book.cover_url = saved?.cover_url || cover;
     setAlert(`New cover saved for “${text(book.title) || 'Untitled'}”.`);
@@ -674,6 +606,13 @@ document.addEventListener('keydown', (e) => {
     confirmingId = '';
     renderList();
   } else closeCatalogue();
+});
+
+// CSV intake and other writers announce changes; drop the cache so the list refills.
+window.addEventListener('trc:catalogue-changed', () => {
+  books = null;
+  booksPromise = null;
+  if (overlay && !overlay.hidden) ensureBooks();
 });
 
 for (const [key, trigger] of Object.entries(triggers)) {

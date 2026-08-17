@@ -982,6 +982,243 @@ body.catalogue-open {
   width: 40%;
 }
 
+/* ── CSV intake ── */
+.csv-stage[hidden] {
+  display: none !important;
+}
+
+.csv-drop {
+  display: grid;
+  justify-items: center;
+  gap: 10px;
+  padding: 22px 16px;
+  text-align: center;
+  background: rgba(48, 35, 33, 0.5);
+  border: 2px dashed rgba(215, 157, 87, 0.45);
+}
+
+.csv-drop.is-over {
+  background: rgba(216, 158, 89, 0.14);
+  border-color: #d89e59;
+}
+
+.csv-drop .solid-cta {
+  margin-top: 0;
+}
+
+.csv-hint,
+.csv-note {
+  margin: 0;
+  color: rgba(236, 200, 139, 0.7);
+  font: 10px / 1.7 var(--font-pixel);
+}
+
+.csv-note {
+  margin: 6px 0 0;
+  color: #f2d7a2;
+}
+
+.csv-file-line {
+  margin: 0 0 4px;
+  color: var(--gold);
+  font: 400 22px / 1.1 var(--font-display);
+}
+
+.csv-mode-grid {
+  display: grid;
+  gap: 10px;
+  margin: 12px 0;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+}
+
+.csv-mode-card {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 14px;
+  background: rgba(48, 35, 33, 0.62);
+  border: 2px solid rgba(215, 157, 87, 0.32);
+}
+
+.csv-mode-card h2 {
+  margin: 0;
+  color: var(--gold);
+  font: 400 24px / 1.05 var(--font-display);
+}
+
+.csv-mode-card p:not(.tile-kicker) {
+  margin: 0;
+  color: rgba(236, 200, 139, 0.75);
+  font: 13px / 1.55 var(--font-body);
+}
+
+.csv-mode-card .solid-cta {
+  margin-top: auto;
+}
+
+.csv-progress {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 0 0 12px;
+}
+
+.csv-progress-track {
+  flex: 1;
+  height: 12px;
+  background: rgba(26, 18, 16, 0.72);
+  border: 2px solid rgba(215, 157, 87, 0.35);
+}
+
+.csv-progress-bar {
+  display: block;
+  width: 0;
+  height: 100%;
+  background: #d89e59;
+  transition: width 0.2s linear;
+}
+
+.csv-progress-text {
+  margin: 0;
+  color: rgba(236, 200, 139, 0.78);
+  font: 700 10px var(--font-pixel);
+}
+
+.csv-list {
+  display: grid;
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.csv-card {
+  display: flex;
+  gap: 14px;
+  padding: 12px;
+  background: rgba(48, 35, 33, 0.72);
+  border: 2px solid rgba(215, 157, 87, 0.28);
+}
+
+.csv-card-cover {
+  flex: 0 0 132px;
+  display: grid;
+  justify-items: center;
+  gap: 6px;
+}
+
+.csv-card-cover .cover-carousel {
+  margin: 0;
+  max-width: 132px;
+}
+
+.csv-hero {
+  display: grid;
+  place-items: center;
+}
+
+.csv-cover-btn {
+  width: 100%;
+  justify-content: center;
+}
+
+.csv-card-body {
+  min-width: 0;
+  flex: 1;
+  display: grid;
+  gap: 8px;
+  align-content: start;
+}
+
+.csv-card-head {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 0;
+}
+
+.csv-index {
+  padding: 2px 7px 0;
+  color: rgba(236, 200, 139, 0.8);
+  background: rgba(26, 18, 16, 0.6);
+  font: 700 9px var(--font-pixel);
+}
+
+.csv-field {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+.csv-field > span {
+  color: #d89e59;
+  font: 700 9px var(--font-pixel);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.csv-field input,
+.csv-field select,
+.csv-field textarea {
+  width: 100%;
+  min-width: 0;
+  padding: 8px 10px;
+  color: #f4dfb0;
+  background: rgba(26, 18, 16, 0.72);
+  border: 2px solid rgba(215, 157, 87, 0.32);
+  font: 12px / 1.5 var(--font-pixel);
+}
+
+.csv-field textarea {
+  resize: vertical;
+}
+
+.csv-field input:focus,
+.csv-field select:focus,
+.csv-field textarea:focus {
+  outline: 2px solid rgba(216, 158, 89, 0.7);
+  outline-offset: -2px;
+}
+
+.csv-field-grid {
+  display: grid;
+  gap: 8px;
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+}
+
+.csv-card-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 2px;
+}
+
+.csv-commit-row {
+  margin-top: 14px;
+}
+
+@media (max-width: 700px) {
+  .csv-card {
+    flex-direction: column;
+  }
+
+  .csv-card-cover {
+    flex: none;
+    width: 100%;
+  }
+
+  .csv-card-cover .cover-carousel {
+    max-width: 100%;
+  }
+
+  .csv-field input,
+  .csv-field select,
+  .csv-field textarea {
+    font-size: 16px;
+  }
+}
+
 /* ── Full catalogue browser ── */
 .catalogue-toolbar {
   display: flex;
