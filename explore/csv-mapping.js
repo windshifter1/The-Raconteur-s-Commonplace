@@ -250,17 +250,70 @@ export function scoreHit(hit, draft) {
   return score;
 }
 
+/** How far apart two scores may be and still count as a tie. */
+export const AMBIGUITY_GAP = 2;
+
+function normText(value) {
+  return textOf(value).toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
+}
+
+/** Plausible matches, best first. Sorting is stable, so equal scores keep search order. */
+export function rankHits(hits, draft) {
+  return (hits || [])
+    .map((hit) => ({ hit, score: scoreHit(hit, draft) }))
+    .filter((entry) => entry.score > 0)
+    .sort((a, b) => b.score - a.score);
+}
+
 export function pickBestHit(hits, draft) {
-  let best = null;
-  let bestScore = 0;
-  for (const hit of hits || []) {
-    const score = scoreHit(hit, draft);
-    if (score > bestScore) {
-      best = hit;
-      bestScore = score;
-    }
+  return rankHits(hits, draft)[0]?.hit || null;
+}
+
+/**
+ * The same book, whatever printing: title and lead author decide. Reissues of one
+ * title are not a question worth asking the reader.
+ */
+export function sameWork(a, b) {
+  if (normText(a?.title) !== normText(b?.title)) return false;
+  return normText((a?.authors || [])[0]) === normText((b?.authors || [])[0]);
+}
+
+/** Distinct books worth choosing between, best first. */
+export function workCandidates(ranked, limit = 5) {
+  const out = [];
+  for (const entry of ranked) {
+    if (out.some((kept) => sameWork(kept.hit, entry.hit))) continue;
+    out.push(entry);
+    if (out.length >= limit) break;
   }
-  return best;
+  return out;
+}
+
+/**
+ * A row needs a human choice when two different books match it almost equally — a
+ * thin title with no author, say. An exact title beside an inexact one is no contest.
+ */
+export function needsChoice(candidates, draft) {
+  if (candidates.length < 2) return false;
+  const [top, next] = candidates;
+  if (top.score - next.score > AMBIGUITY_GAP) return false;
+  const wanted = normText(draft?.title);
+  if (wanted && normText(top.hit.title) === wanted && normText(next.hit.title) !== wanted) return false;
+  return true;
+}
+
+/**
+ * Read the search results for one CSV row: the listing to apply, the shortlist to
+ * offer, and whether the row should be flagged for the reader to settle.
+ * @returns {{ best: object | null, candidates: object[], ambiguous: boolean }}
+ */
+export function matchChoices(hits, draft, limit = 5) {
+  const candidates = workCandidates(rankHits(hits, draft), limit);
+  return {
+    best: candidates[0]?.hit || null,
+    candidates: candidates.map((entry) => entry.hit),
+    ambiguous: needsChoice(candidates, draft),
+  };
 }
 
 /** Search hits carry fewer fields than an ISBN lookup; shape them the same way. */

@@ -608,6 +608,39 @@ body.catalogue-open {
   cursor: default;
 }
 
+.search-result-row {
+  display: flex;
+  align-items: stretch;
+  gap: 8px;
+}
+
+.search-result-row .search-result-item {
+  min-width: 0;
+  flex: 1;
+}
+
+.intake-add {
+  position: relative;
+  flex: 0 0 86px;
+  overflow: hidden;
+  color: #322021;
+  background: #d89e59;
+  border: 0;
+  font: 700 11px var(--font-pixel);
+  text-transform: uppercase;
+  letter-spacing: 0.09em;
+  cursor: pointer;
+  box-shadow: inset 0 -4px 0 rgba(93, 48, 37, 0.28);
+  transition: filter 0.18s, transform 0.18s;
+}
+
+@media (hover: hover) {
+  .intake-add:hover {
+    filter: brightness(1.1);
+    transform: translateY(-2px);
+  }
+}
+
 .search-result-title {
   margin: 0;
   color: #f2d7a2;
@@ -725,6 +758,53 @@ body.catalogue-open {
 
 .intake-selected {
   margin-top: 14px;
+}
+
+/* ── Search save preview ── */
+.intake-preview {
+  margin-top: 4px;
+}
+
+/* The preview takes the panel over, the way the scanner result hides the camera. */
+[data-intake-panel='search'].is-previewing > .intake-copy,
+[data-intake-panel='search'].is-previewing > .intake-search-bar,
+[data-intake-panel='search'].is-previewing > .search-results-status,
+[data-intake-panel='search'].is-previewing > .intake-list,
+[data-intake-panel='search'].is-previewing > .intake-selected {
+  display: none !important;
+}
+
+.intake-preview-grid {
+  display: flex;
+  gap: 14px;
+  margin-top: 10px;
+}
+
+.intake-preview-cover {
+  flex: 0 0 132px;
+  display: grid;
+  justify-items: center;
+  gap: 6px;
+  align-content: start;
+}
+
+.intake-preview-body {
+  min-width: 0;
+  flex: 1;
+  display: grid;
+  gap: 8px;
+  align-content: start;
+}
+
+@media (max-width: 700px) {
+  .intake-preview-grid {
+    flex-direction: column;
+  }
+
+  .intake-preview-cover {
+    flex: none;
+    width: 100%;
+  }
 }
 
 .intake-placeholder {
@@ -1007,13 +1087,13 @@ body.catalogue-open {
 }
 
 .csv-hint,
-.csv-note {
+.intake-note {
   margin: 0;
   color: rgba(236, 200, 139, 0.7);
   font: 10px / 1.7 var(--font-pixel);
 }
 
-.csv-note {
+.intake-note {
   margin: 6px 0 0;
   color: #f2d7a2;
 }
@@ -1100,6 +1180,70 @@ body.catalogue-open {
   border: 2px solid rgba(215, 157, 87, 0.28);
 }
 
+.csv-card--flagged {
+  border-color: rgba(216, 158, 89, 0.72);
+  box-shadow: 0 0 0 1px rgba(216, 158, 89, 0.22);
+}
+
+.csv-choice {
+  display: grid;
+  gap: 8px;
+  padding: 10px;
+  background: rgba(26, 18, 16, 0.55);
+  border: 2px solid rgba(216, 158, 89, 0.45);
+}
+
+.csv-choice-head {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 0;
+  color: rgba(236, 200, 139, 0.85);
+  font: 10px / 1.7 var(--font-pixel);
+}
+
+.csv-flag {
+  padding: 2px 7px 0;
+  color: #2a1a16;
+  background: #d89e59;
+  font: 700 9px var(--font-pixel);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.csv-choice-list {
+  display: grid;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.csv-choice-item {
+  display: flex;
+  gap: 10px;
+  width: 100%;
+  padding: 8px;
+  color: inherit;
+  text-align: left;
+  background: rgba(48, 35, 33, 0.72);
+  border: 2px solid rgba(215, 157, 87, 0.28);
+  cursor: pointer;
+}
+
+@media (hover: hover) {
+  .csv-choice-item:hover {
+    border-color: rgba(216, 158, 89, 0.7);
+  }
+}
+
+.csv-choice-lines {
+  min-width: 0;
+  display: grid;
+  gap: 2px;
+}
+
 .csv-card-cover {
   flex: 0 0 132px;
   display: grid;
@@ -1107,17 +1251,18 @@ body.catalogue-open {
   gap: 6px;
 }
 
-.csv-card-cover .cover-carousel {
+.csv-card-cover .cover-carousel,
+.intake-preview-cover .cover-carousel {
   margin: 0;
   max-width: 132px;
 }
 
-.csv-hero {
+.intake-hero {
   display: grid;
   place-items: center;
 }
 
-.csv-cover-btn {
+.intake-cover-btn {
   width: 100%;
   justify-content: center;
 }
@@ -1130,7 +1275,7 @@ body.catalogue-open {
   align-content: start;
 }
 
-.csv-card-head {
+.intake-tag-row {
   display: flex;
   align-items: center;
   flex-wrap: wrap;
@@ -1145,22 +1290,22 @@ body.catalogue-open {
   font: 700 9px var(--font-pixel);
 }
 
-.csv-field {
+.intake-field {
   display: grid;
   gap: 4px;
   min-width: 0;
 }
 
-.csv-field > span {
+.intake-field > span {
   color: #d89e59;
   font: 700 9px var(--font-pixel);
   letter-spacing: 0.08em;
   text-transform: uppercase;
 }
 
-.csv-field input,
-.csv-field select,
-.csv-field textarea {
+.intake-field input,
+.intake-field select,
+.intake-field textarea {
   width: 100%;
   min-width: 0;
   padding: 8px 10px;
@@ -1170,18 +1315,18 @@ body.catalogue-open {
   font: 12px / 1.5 var(--font-pixel);
 }
 
-.csv-field textarea {
+.intake-field textarea {
   resize: vertical;
 }
 
-.csv-field input:focus,
-.csv-field select:focus,
-.csv-field textarea:focus {
+.intake-field input:focus,
+.intake-field select:focus,
+.intake-field textarea:focus {
   outline: 2px solid rgba(216, 158, 89, 0.7);
   outline-offset: -2px;
 }
 
-.csv-field-grid {
+.intake-field-grid {
   display: grid;
   gap: 8px;
   grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
@@ -1208,13 +1353,14 @@ body.catalogue-open {
     width: 100%;
   }
 
-  .csv-card-cover .cover-carousel {
+  .csv-card-cover .cover-carousel,
+  .intake-preview-cover .cover-carousel {
     max-width: 100%;
   }
 
-  .csv-field input,
-  .csv-field select,
-  .csv-field textarea {
+  .intake-field input,
+  .intake-field select,
+  .intake-field textarea {
     font-size: 16px;
   }
 }

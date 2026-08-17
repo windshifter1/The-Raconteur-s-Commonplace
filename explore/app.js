@@ -1,5 +1,6 @@
 import { debounce, peekCachedResults, peekLocalHits, searchBooks } from './book-search.js';
 import { startBarcodePanel, stopBarcodePanel } from './barcode-intake.js';
+import { closeBookPreview, isPreviewOpen, openBookPreview } from './book-preview.js';
 import { sprinkleButtonMotes } from '../lib/ember-motes.js';
 
 const overlay = document.getElementById('intake-overlay');
@@ -83,6 +84,7 @@ function suppressSuggest() {
 
 function setMethod(name) {
   if (name !== 'search') suppressSuggest();
+  closeBookPreview();
   overlay?.querySelectorAll('[data-intake-method]').forEach((btn) => {
     btn.setAttribute('aria-pressed', String(btn.dataset.intakeMethod === name));
   });
@@ -107,6 +109,7 @@ function closeIntake() {
   if (!overlay) return;
   overlay.hidden = true;
   document.body.classList.remove('intake-open');
+  closeBookPreview();
   hideSuggest();
   inputEl?.blur();
   stopBarcodePanel();
@@ -145,7 +148,7 @@ function renderResults(hits, { empty, bothFailed, errors }) {
   }
   setStatus(`${hits.length} title${hits.length === 1 ? '' : 's'} found${notes.length ? ` · ${notes.join(' ')}` : ''}`);
   listEl.innerHTML = hits
-    .map((hit, i) => `<li>
+    .map((hit, i) => `<li class="search-result-row">
       <button type="button" class="search-result-item intake-card" data-hit-index="${i}">
         ${coverHtml(hit)}
         <span class="intake-card-body">
@@ -154,11 +157,20 @@ function renderResults(hits, { empty, bothFailed, errors }) {
           <span class="search-result-meta">${escapeHtml(metaLine(hit) || 'Bibliographic details as returned')}</span>
         </span>
       </button>
+      <button type="button" class="intake-add" data-add-index="${i}" aria-label="Add ${escapeHtml(hit.title)}">Add</button>
     </li>`)
     .join('');
   listEl.querySelectorAll('[data-hit-index]').forEach((btn) => {
     btn.addEventListener('click', () => selectHit(hits[Number(btn.dataset.hitIndex)]));
   });
+  listEl.querySelectorAll('[data-add-index]').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const hit = hits[Number(btn.dataset.addIndex)];
+      selectHit(hit);
+      openBookPreview(hit);
+    });
+  });
+  sprinkleButtonMotes(listEl);
 }
 
 function renderSuggest(hits) {
@@ -270,7 +282,9 @@ overlay?.addEventListener('click', (e) => {
   if (e.target === overlay) closeIntake();
 });
 document.addEventListener('keydown', (e) => {
-  if (e.key === 'Escape' && overlay && !overlay.hidden) closeIntake();
+  if (e.key !== 'Escape' || !overlay || overlay.hidden) return;
+  if (isPreviewOpen()) closeBookPreview();
+  else closeIntake();
 });
 
 overlay?.querySelectorAll('[data-intake-method]').forEach((btn) => {

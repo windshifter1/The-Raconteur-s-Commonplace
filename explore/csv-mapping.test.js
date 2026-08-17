@@ -9,11 +9,15 @@ import {
   draftToPayload,
   draftsFromCsv,
   hitToBook,
+  matchChoices,
   normalizeAvailability,
   normalizeFormat,
   orderCovers,
   pickBestHit,
+  rankHits,
+  sameWork,
   splitAuthors,
+  workCandidates,
   titleAuthorKey,
   yearFrom,
 } from './csv-mapping.js';
@@ -145,6 +149,49 @@ const hits = [
 ];
 assert(pickBestHit(hits, draft) === hits[1], 'the exact title/author/year match wins');
 assert(pickBestHit([], draft) === null, 'no hits gives no match');
+
+/* Reissues of one book are not a question; different books with close scores are */
+const dune = { title: 'Dune', author: 'Frank Herbert', authors: ['Frank Herbert'], year: null };
+const duneHits = [
+  { title: 'Dune', authors: ['Frank Herbert'], publicationYear: 1965, publisher: 'Chilton', isbn: '9780441172719', coverUrl: 'a', source: 'open-library' },
+  { title: 'Dune', authors: ['Frank Herbert'], publicationYear: 2005, publisher: 'Penguin', isbn: '9780441013593', coverUrl: 'b', source: 'google-books' },
+  { title: 'Dune Messiah', authors: ['Frank Herbert'], publicationYear: 1969, publisher: 'Putnam', isbn: null, coverUrl: null, source: 'open-library' },
+];
+const duneMatch = matchChoices(duneHits, dune);
+assert(!duneMatch.ambiguous, 'two printings of one book need no choice');
+assert(duneMatch.best === duneHits[0], 'the closest printing still wins');
+assertEqual(duneMatch.candidates.map((hit) => hit.title), ['Dune', 'Dune Messiah'], 'printings collapse, distinct books stay');
+
+const messiah = { title: 'Dune Messiah', author: 'Frank Herbert', authors: ['Frank Herbert'], year: null };
+assert(!matchChoices(duneHits, messiah).ambiguous, 'an exact title beside near misses is no contest');
+
+/* A thin title with no author to lean on is the case that needs a reader */
+const girl = { title: 'The Girl', author: '', authors: [], year: null };
+const girlHits = [
+  { title: 'The Girl on the Train', authors: ['Paula Hawkins'], publicationYear: 2015, isbn: '9781594634024', coverUrl: 'a', source: 'open-library' },
+  { title: 'The Girl with the Dragon Tattoo', authors: ['Stieg Larsson'], publicationYear: 2008, isbn: '9780307454546', coverUrl: 'b', source: 'open-library' },
+];
+const girlMatch = matchChoices(girlHits, girl);
+assert(girlMatch.ambiguous, 'two different books matching equally need a choice');
+assertEqual(girlMatch.candidates.length, 2, 'both books are offered');
+assert(girlMatch.best === girlHits[0], 'the shortlist leads with the best guess');
+
+const single = matchChoices([duneHits[0]], dune);
+assert(!single.ambiguous && single.candidates.length === 1, 'one candidate is never ambiguous');
+assert(!matchChoices([], dune).ambiguous && matchChoices([], dune).best === null, 'no results, nothing to choose');
+
+/* The same book from both APIs is one entry in the shortlist */
+const twinHits = [
+  { title: 'Dune', authors: ['Frank Herbert'], publicationYear: 1965, isbn: '9780441172719', coverUrl: 'a', source: 'open-library' },
+  { title: 'Dune', authors: ['Frank Herbert'], publicationYear: 1965, isbn: '9780441172719', coverUrl: 'b', source: 'google-books' },
+];
+assertEqual(matchChoices(twinHits, dune).candidates.length, 1, 'one book from two sources collapses');
+assert(sameWork(duneHits[0], duneHits[1]), 'same title and author is the same work');
+assert(!sameWork(duneHits[0], duneHits[2]), 'a different title is a different work');
+assert(!sameWork(girlHits[0], { title: 'The Girl on the Train', authors: ['Someone Else'] }), 'a different author is a different work');
+
+assertEqual(rankHits(duneHits, dune).map((entry) => entry.hit.publicationYear), [1965, 2005, 1969], 'ranking is best first');
+assertEqual(workCandidates(rankHits(girlHits, girl), 1).length, 1, 'the shortlist honours its limit');
 
 /* Refresh replaces details but keeps the old cover selectable */
 const refreshed = applyLookup(own, {

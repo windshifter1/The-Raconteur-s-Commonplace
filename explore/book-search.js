@@ -4,10 +4,12 @@
  * Open Library is also queried only on the proxy so the request can send a contact User-Agent.
  */
 import config from './config.js';
+import { budgetedSignal, timeoutError } from './net.js';
 
 const DEBOUNCE_MS = 120;
 const CACHE_TTL_MS = 5 * 60 * 1000;
 const FETCH_LIMIT = 24;
+const REQUEST_TIMEOUT_MS = 15000;
 const APP_UA_NOTE = 'The Raconteur’s Commonplace catalogue';
 
 /** @typedef {{
@@ -24,6 +26,8 @@ const APP_UA_NOTE = 'The Raconteur’s Commonplace catalogue';
  * }} BookSearchHit */
 
 const cache = new Map();
+/** Query key → in-flight request, so parallel callers share one round-trip. */
+const inflight = new Map();
 
 export function debounce(fn, wait = DEBOUNCE_MS) {
   let timer = 0;
@@ -189,18 +193,27 @@ export function interleaveSources(hits) {
   return out;
 }
 
-async function searchViaProxy(q, limit, signal) {
+async function searchViaProxy(q, limit, signal, timeoutMs) {
   const url = config.bookSearchUrl;
   const key = config.supabaseAnonKey;
   if (!url || !key) throw new Error('Book search proxy is not configured.');
-  const res = await fetch(`${url}?q=${encodeURIComponent(q)}&limit=${limit}`, {
-    signal,
-    headers: {
-      apikey: key,
-      Authorization: `Bearer ${key}`,
-      Accept: 'application/json',
-    },
-  });
+  const budget = budgetedSignal(signal, timeoutMs);
+  let res;
+  try {
+    res = await fetch(`${url}?q=${encodeURIComponent(q)}&limit=${limit}`, {
+      signal: budget.signal,
+      headers: {
+        apikey: key,
+        Authorization: `Bearer ${key}`,
+        Accept: 'application/json',
+      },
+    });
+  } catch (err) {
+    if (budget.timedOut) throw timeoutError(timeoutMs, 'Search');
+    throw err;
+  } finally {
+    budget.release();
+  }
   const data = await res.json().catch(() => ({}));
   if (!res.ok && !Array.isArray(data?.results)) {
     throw new Error(data?.error || `Book search failed (${res.status}).`);
@@ -214,7 +227,7 @@ async function searchViaProxy(q, limit, signal) {
 
 /**
  * @param {string} rawQuery
- * @param {{ limit?: number, signal?: AbortSignal }} [opts]
+ * @param {{ limit?: number, signal?: AbortSignal, timeoutMs?: number, tries?: number }} [opts]
  */
 export async function searchBooks(rawQuery, opts = {}) {
   const q = String(rawQuery || '').trim();
@@ -232,25 +245,56 @@ export async function searchBooks(rawQuery, opts = {}) {
     };
   }
 
-  let payload;
-  try {
-    payload = await searchViaProxy(q, FETCH_LIMIT, opts.signal);
-  } catch (err) {
-    if (err?.name === 'AbortError') {
-      return { results: [], errors: {}, empty: false, bothFailed: false, aborted: true };
+  const value = await sharedSearch(key, q, opts);
+  return { ...value, results: value.results.slice(0, limit) };
+}
+
+/**
+ * Batch callers repeat queries, so they share one round-trip. Abortable callers stay
+ * separate: one cancellation must not take another caller's search down with it.
+ */
+function sharedSearch(key, q, opts) {
+  if (opts.signal) return fetchSearch(q, opts);
+  const pending = inflight.get(key);
+  if (pending) return pending;
+  const run = fetchSearch(q, opts).finally(() => inflight.delete(key));
+  inflight.set(key, run);
+  return run;
+}
+
+async function fetchSearch(q, opts) {
+  const key = cacheKey(q);
+  const timeoutMs = Number(opts.timeoutMs) || REQUEST_TIMEOUT_MS;
+  const tries = Math.max(1, Number(opts.tries) || 1);
+  let payload = null;
+  let failure = null;
+  let timedOut = false;
+
+  // Upstream sometimes stalls on one query while the next is quick, so a timed-out
+  // attempt is worth repeating rather than waiting on it.
+  for (let attempt = 0; attempt < tries && !payload; attempt += 1) {
+    try {
+      payload = await searchViaProxy(q, FETCH_LIMIT, opts.signal, timeoutMs);
+    } catch (err) {
+      if (err?.name === 'AbortError') {
+        return { results: [], errors: {}, empty: false, bothFailed: false, aborted: true };
+      }
+      failure = err;
+      if (err?.name !== 'TimeoutError') break;
+      timedOut = true;
     }
-    payload = {
-      results: [],
-      errors: {
-        openLibrary: err?.message || 'Open Library is unavailable.',
-        googleBooks: err?.message || 'Google Books is unavailable.',
-      },
-      googleConfigured: false,
-    };
   }
 
   if (opts.signal?.aborted) {
     return { results: [], errors: {}, empty: false, bothFailed: false, aborted: true };
+  }
+  if (!payload) {
+    const message = failure?.message || 'Book search is unavailable.';
+    payload = {
+      results: [],
+      errors: { openLibrary: message, googleBooks: message },
+      googleConfigured: false,
+    };
   }
 
   const results = Array.isArray(payload.results) ? payload.results : [];
@@ -261,9 +305,11 @@ export async function searchBooks(rawQuery, opts = {}) {
     errors,
     empty: !results.length && !bothFailed,
     bothFailed,
+    timedOut,
     googleConfigured: Boolean(payload.googleConfigured),
     note: APP_UA_NOTE,
   };
-  cache.set(key, { at: Date.now(), value });
-  return { ...value, results: results.slice(0, limit) };
+  // A stall or an outage is not an answer worth remembering.
+  if (!timedOut && !bothFailed) cache.set(key, { at: Date.now(), value });
+  return value;
 }

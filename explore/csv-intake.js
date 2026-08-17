@@ -10,16 +10,16 @@ import { coverFileError, makeCoverUrl } from '../lib/cover-image.js';
 import { lookupIsbn } from './book-lookup.js';
 import { searchBooks } from './book-search.js';
 import { insertBooks } from './collection.js';
+import { coverPickerHtml, withUploadedCover } from './cover-picker.js';
+import { applyFieldEdit, intakeFieldsHtml, sourceTagsHtml } from './intake-fields.js';
 import { normalizeIsbn } from './isbn.js';
 import {
   applyLookup,
   draftToPayload,
   draftsFromCsv,
   hitToBook,
-  pickBestHit,
-  splitAuthors,
+  matchChoices,
   titleAuthorKey,
-  yearFrom,
 } from './csv-mapping.js';
 
 const panel = document.querySelector('[data-intake-panel="csv"]');
@@ -51,8 +51,9 @@ const doneSummary = document.getElementById('csv-done-summary');
 const doneAgainBtn = document.getElementById('csv-done-again');
 
 const PAGE_SIZE = 12;
-const REFRESH_WORKERS = 4;
-const FORMAT_OPTIONS = ['paperback', 'hardcover', 'ebook', 'other'];
+const REFRESH_WORKERS = 8;
+/** A batch cannot wait on a stalled query the way one impatient reader can. */
+const BATCH_BUDGET = { timeoutMs: 9000, tries: 2 };
 
 /** @type {object[]} */
 let drafts = [];
@@ -63,6 +64,9 @@ let refreshing = false;
 let stopRequested = false;
 let committing = false;
 let coverTarget = -1;
+let refreshNote = '';
+let enriching = false;
+let enrichToken = 0;
 
 const coverInput = document.createElement('input');
 coverInput.type = 'file';
@@ -83,92 +87,54 @@ function setStage(name) {
   }
 }
 
-function sourceTags(source) {
-  const labels = source === 'both'
-    ? ['Open Library', 'Google Books']
-    : source === 'google-books'
-      ? ['Google Books']
-      : source === 'open-library'
-        ? ['Open Library']
-        : ['From CSV'];
-  return labels.map((label) => `<span class="source-tag">${escapeHtml(label)}</span>`).join('');
-}
-
-function coverMarkup(url) {
-  if (url) {
-    return `<img class="intake-cover scanner-cover" src="${escapeHtml(url)}" alt="" width="120" height="180" />`;
-  }
-  return '<span class="intake-cover scanner-cover intake-cover--empty" aria-hidden="true"></span>';
-}
-
-function coverOptionsHtml(draft, index) {
-  if (draft.covers.length < 2) return '';
-  return `<div class="cover-carousel" role="listbox" aria-label="Available covers">${draft.covers
-    .map((item) => `<button type="button" class="cover-carousel-item" role="option" data-row="${index}" data-cover-url="${escapeHtml(item.url)}" aria-pressed="${item.url === draft.coverUrl}" title="${escapeHtml(item.source)}">
-        <img class="scanner-cover-thumb" src="${escapeHtml(item.url)}" alt="" width="56" height="84" />
-      </button>`)
-    .join('')}</div>`;
-}
-
 function cardCoverHtml(draft, index) {
-  return `
-    <div class="csv-hero">${coverMarkup(draft.coverUrl)}</div>
-    ${coverOptionsHtml(draft, index)}
-    <button type="button" class="catalogue-action csv-cover-btn" data-csv-cover="${index}">Upload cover</button>
-  `;
+  return coverPickerHtml({ covers: draft.covers, selected: draft.coverUrl, row: index });
 }
 
-function fieldsHtml(draft, index) {
-  const formats = FORMAT_OPTIONS
-    .map((value) => `<option value="${value}"${value === draft.format ? ' selected' : ''}>${value}</option>`)
-    .join('');
+function hitMeta(hit) {
+  return [hit.publicationYear, hit.publisher, hit.isbn ? `ISBN ${hit.isbn}` : '']
+    .filter(Boolean)
+    .join(' · ');
+}
+
+/** Shortlist for a row whose match was too close to call. */
+function choiceHtml(draft, index) {
+  if (!draft.ambiguous || !draft.candidates?.length) return '';
+  const options = draft.candidates.map((hit, which) => `<li>
+      <button type="button" class="csv-choice-item" data-csv-choose="${index}" data-candidate="${which}">
+        ${hit.coverUrl
+          ? `<img class="intake-cover intake-cover--sm" src="${escapeHtml(hit.coverUrl)}" alt="" width="36" height="52" loading="lazy" />`
+          : '<span class="intake-cover intake-cover--sm intake-cover--empty" aria-hidden="true"></span>'}
+        <span class="csv-choice-lines">
+          <span class="search-result-title">${escapeHtml(hit.title)} ${sourceTagsHtml(hit.source)}</span>
+          <span class="search-result-author">${escapeHtml(hit.authors?.join(', ') || 'Unknown author')}</span>
+          <span class="search-result-meta">${escapeHtml(hitMeta(hit) || 'No edition details given')}</span>
+        </span>
+      </button>
+    </li>`).join('');
   return `
-    <label class="csv-field csv-field--wide">
-      <span>Title</span>
-      <input type="text" data-row="${index}" data-field="title" value="${escapeHtml(draft.title)}" placeholder="Untitled" />
-    </label>
-    <label class="csv-field csv-field--wide">
-      <span>Author(s)</span>
-      <input type="text" data-row="${index}" data-field="author" value="${escapeHtml(draft.author)}" placeholder="Unknown author" />
-    </label>
-    <div class="csv-field-grid">
-      <label class="csv-field">
-        <span>Year</span>
-        <input type="text" inputmode="numeric" data-row="${index}" data-field="year" value="${escapeHtml(draft.year ?? '')}" placeholder="—" />
-      </label>
-      <label class="csv-field">
-        <span>Publisher</span>
-        <input type="text" data-row="${index}" data-field="publisher" value="${escapeHtml(draft.publisher ?? '')}" placeholder="—" />
-      </label>
-      <label class="csv-field">
-        <span>ISBN</span>
-        <input type="text" data-row="${index}" data-field="isbn" value="${escapeHtml(draft.isbn ?? '')}" placeholder="—" />
-      </label>
-      <label class="csv-field">
-        <span>Format</span>
-        <select data-row="${index}" data-field="format">${formats}</select>
-      </label>
+    <div class="csv-choice" role="group" aria-label="Choose an edition for ${escapeHtml(draft.title || 'this row')}">
+      <p class="csv-choice-head"><span class="csv-flag">Needs a choice</span> Similar titles matched — pick the one you own.</p>
+      <ul class="csv-choice-list">${options}</ul>
+      <button type="button" class="catalogue-action" data-csv-keep="${index}">None of these — keep my CSV row</button>
     </div>
-    <label class="csv-field csv-field--wide">
-      <span>Description</span>
-      <textarea rows="3" data-row="${index}" data-field="description" placeholder="—">${escapeHtml(draft.description ?? '')}</textarea>
-    </label>
   `;
 }
 
 function cardInnerHtml(draft, index) {
   const note = draft.note
-    ? `<p class="csv-note">${escapeHtml(draft.note)}</p>`
+    ? `<p class="intake-note">${escapeHtml(draft.note)}</p>`
     : '';
   return `
     <div class="csv-card-cover" data-cover-slot="${index}">${cardCoverHtml(draft, index)}</div>
     <div class="csv-card-body">
-      <p class="csv-card-head">
+      ${choiceHtml(draft, index)}
+      <p class="intake-tag-row">
         <span class="csv-index">${index + 1}</span>
-        ${sourceTags(draft.source)}
+        ${sourceTagsHtml(draft.source)}
       </p>
       ${note}
-      ${fieldsHtml(draft, index)}
+      ${intakeFieldsHtml(draft, index)}
       <div class="csv-card-actions">
         <button type="button" class="catalogue-action" data-csv-refresh="${index}">Refresh this row</button>
         <button type="button" class="catalogue-action" data-csv-remove="${index}">Remove</button>
@@ -177,17 +143,37 @@ function cardInnerHtml(draft, index) {
   `;
 }
 
+/**
+ * Rows waiting on a choice come first; everything else keeps its CSV order, so a
+ * settled row drops straight back to where the spreadsheet had it.
+ */
+function viewOrder() {
+  const flagged = [];
+  const rest = [];
+  drafts.forEach((draft, index) => (draft.ambiguous ? flagged : rest).push(index));
+  return [...flagged, ...rest];
+}
+
 function renderList() {
   if (!listEl) return;
-  const slice = drafts.slice(0, shown);
+  const order = viewOrder();
+  const slice = order.slice(0, shown);
   listEl.innerHTML = slice
-    .map((draft, index) => `<li class="csv-card" data-card="${index}">${cardInnerHtml(draft, index)}</li>`)
+    .map((index) => `<li class="csv-card${drafts[index].ambiguous ? ' csv-card--flagged' : ''}" data-card="${index}">${cardInnerHtml(drafts[index], index)}</li>`)
     .join('');
-  const remaining = drafts.length - slice.length;
+  const remaining = order.length - slice.length;
   if (moreWrap) moreWrap.hidden = remaining <= 0;
   if (moreBtn) moreBtn.textContent = `Show ${Math.min(PAGE_SIZE, remaining)} more`;
   sprinkleButtonMotes(listEl);
   syncReviewStatus();
+}
+
+/** Keep a row on screen after it moves back into its natural position. */
+function revealRow(index) {
+  const position = viewOrder().indexOf(index);
+  if (position < 0 || position < shown) return;
+  shown = Math.min(drafts.length, Math.ceil((position + 1) / PAGE_SIZE) * PAGE_SIZE);
+  renderList();
 }
 
 /** Repaint one card so edits elsewhere keep their caret. */
@@ -197,6 +183,20 @@ function replaceCard(index) {
   if (!li || !draft) return;
   li.innerHTML = cardInnerHtml(draft, index);
   sprinkleButtonMotes(li);
+}
+
+/** Fold late-arriving details into a card without disturbing what is being typed. */
+function patchCardDetails(index) {
+  const li = listEl?.querySelector(`[data-card="${index}"]`);
+  const draft = drafts[index];
+  if (!li || !draft) return;
+  for (const el of li.querySelectorAll('[data-field]')) {
+    if (el === document.activeElement) continue;
+    const field = el.dataset.field;
+    el.value = field === 'year' ? (draft.year ?? '') : (draft[field] ?? '');
+  }
+  replaceCardCover(index);
+  setCardNote(index, draft.note || '');
 }
 
 function replaceCardCover(index) {
@@ -213,27 +213,39 @@ function setCardNote(index, message) {
   const li = listEl?.querySelector(`[data-card="${index}"]`);
   const body = li?.querySelector('.csv-card-body');
   if (!body) return;
-  let note = body.querySelector('.csv-note');
+  let note = body.querySelector('.intake-note');
   if (!message) {
     note?.remove();
     return;
   }
   if (!note) {
     note = document.createElement('p');
-    note.className = 'csv-note';
-    body.querySelector('.csv-card-head')?.after(note);
+    note.className = 'intake-note';
+    body.querySelector('.intake-tag-row')?.after(note);
   }
   note.textContent = message;
+}
+
+function pendingChoices() {
+  return drafts.filter((draft) => draft.ambiguous).length;
 }
 
 function syncReviewStatus() {
   if (!reviewStatus) return;
   if (refreshing) return;
   const shownCount = Math.min(shown, drafts.length);
-  const scope = shownCount < drafts.length ? ` · showing ${shownCount}` : '';
-  reviewStatus.textContent = drafts.length
-    ? `${drafts.length} book${drafts.length === 1 ? '' : 's'} ready from ${fileName}${scope}${parseNote ? ` · ${parseNote}` : ''}`
-    : 'Nothing left in this batch.';
+  const pending = pendingChoices();
+  const bits = drafts.length
+    ? [
+      `${drafts.length} book${drafts.length === 1 ? '' : 's'} ready from ${fileName}`,
+      refreshNote,
+      pending ? `${pending} need${pending === 1 ? 's' : ''} a choice` : '',
+      enriching ? 'filling in details…' : '',
+      shownCount < drafts.length ? `showing ${shownCount}` : '',
+      parseNote,
+    ]
+    : ['Nothing left in this batch.'];
+  reviewStatus.textContent = bits.filter(Boolean).join(' · ');
   if (commitBtn) {
     commitBtn.disabled = !drafts.length || committing;
     commitBtn.textContent = drafts.length
@@ -316,31 +328,65 @@ async function handleFile(file) {
 
 /* ── Refresh against Open Library, then Google Books ── */
 
-async function refreshDraft(draft) {
+/**
+ * First pass: one request per row, which is all the review list needs. Rows matched by
+ * title carry a shortlist so a close call can be settled by the reader; blurbs and the
+ * rest of the jackets arrive in the second pass.
+ */
+async function matchDraft(draft) {
   const normalized = normalizeIsbn(draft.isbn);
+  let stalled = false;
   if (normalized) {
-    const out = await lookupIsbn(normalized.canonical);
-    if (out.kind === 'found' && out.book) return applyLookup(draft, out.book);
+    const out = await lookupIsbn(normalized.canonical, BATCH_BUDGET);
+    if (out.kind === 'found' && out.book) {
+      return { ...applyLookup(draft, out.book), ambiguous: false, candidates: [], detailed: true };
+    }
+    stalled = Boolean(out.timedOut);
   }
   const query = [draft.title, draft.authors[0] || ''].filter(Boolean).join(' ').trim();
   if (query.length >= 2) {
-    const out = await searchBooks(query, { limit: 12 });
-    const hit = pickBestHit(out.results, draft);
-    if (hit) {
-      const hitIsbn = normalizeIsbn(hit.isbn);
-      if (hitIsbn) {
-        const full = await lookupIsbn(hitIsbn.canonical);
-        if (full.kind === 'found' && full.book) return applyLookup(draft, full.book);
-      }
-      return applyLookup(draft, hitToBook(hit));
+    const out = await searchBooks(query, { limit: 12, ...BATCH_BUDGET });
+    const { best, candidates, ambiguous } = matchChoices(out.results, draft);
+    if (best) {
+      return {
+        ...applyLookup(draft, hitToBook(best)),
+        ambiguous,
+        candidates: ambiguous ? candidates : [],
+        // Flagged rows keep their spreadsheet values, in case the reader wants them back.
+        original: ambiguous ? draft : null,
+        detailed: false,
+        note: '',
+      };
     }
+    stalled = stalled || Boolean(out.timedOut);
   }
-  return { ...draft, refreshed: false, note: 'No match found — kept the data from your CSV.' };
+  return {
+    ...draft,
+    refreshed: false,
+    ambiguous: false,
+    candidates: [],
+    detailed: true,
+    note: stalled
+      ? 'The lookup service was too slow — kept the data from your CSV.'
+      : 'No match found — kept the data from your CSV.',
+  };
+}
+
+/** Second pass: the full record for a row matched by title, for its blurb and jackets. */
+async function detailDraft(draft) {
+  const normalized = normalizeIsbn(draft.isbn);
+  if (!normalized) return { ...draft, detailed: true };
+  const out = await lookupIsbn(normalized.canonical, BATCH_BUDGET);
+  if (out.kind !== 'found' || !out.book) return { ...draft, detailed: true };
+  const merged = applyLookup(draft, out.book);
+  // A jacket already chosen for this row stays chosen.
+  return { ...merged, coverUrl: draft.coverUrl || merged.coverUrl, detailed: true, note: draft.note };
 }
 
 async function runRefresh() {
   refreshing = true;
   stopRequested = false;
+  refreshNote = '';
   if (stopBtn) stopBtn.hidden = false;
   if (listEl) listEl.innerHTML = '';
   if (moreWrap) moreWrap.hidden = true;
@@ -356,9 +402,9 @@ async function runRefresh() {
     while (queue.length && !stopRequested) {
       const index = queue.shift();
       try {
-        drafts[index] = await refreshDraft(drafts[index]);
+        drafts[index] = await matchDraft(drafts[index]);
       } catch {
-        drafts[index] = { ...drafts[index], note: 'Lookup failed — kept the data from your CSV.' };
+        drafts[index] = { ...drafts[index], detailed: true, note: 'Lookup failed — kept the data from your CSV.' };
       }
       done += 1;
       setProgress(done, total, `${done} of ${total}`);
@@ -370,12 +416,57 @@ async function runRefresh() {
   const matched = drafts.filter((draft) => draft.refreshed).length;
   refreshing = false;
   hideProgress();
+  refreshNote = `${matched} of ${total} refreshed from Open Library / Google Books${stopRequested ? ' · stopped early' : ''}`;
   renderList();
-  if (reviewStatus) {
-    const stoppedNote = stopRequested ? ' · stopped early' : '';
-    reviewStatus.textContent = `${matched} of ${total} refreshed from Open Library / Google Books${stoppedNote} · ${fileName}`;
-  }
   if (commitBtn) commitBtn.disabled = !drafts.length;
+  if (!stopRequested) runEnrichment();
+}
+
+/** Fill in blurbs and extra jackets while the reader looks over the batch. */
+async function runEnrichment() {
+  const token = ++enrichToken;
+  const queue = drafts
+    .map((_, index) => index)
+    .filter((index) => !drafts[index].detailed && !drafts[index].ambiguous && !drafts[index].edited);
+  const total = queue.length;
+  if (!total) return;
+
+  enriching = true;
+  stopRequested = false;
+  if (stopBtn) stopBtn.hidden = false;
+  let done = 0;
+  setProgress(0, total, `details · 0 of ${total}`);
+
+  const worker = async () => {
+    while (queue.length && !stopRequested && token === enrichToken) {
+      const index = queue.shift();
+      const before = drafts[index];
+      if (!before) continue;
+      try {
+        const next = await detailDraft(before);
+        // Skip rows the reader has since edited, replaced, or removed.
+        if (token === enrichToken && drafts[index] === before && !before.edited) {
+          drafts[index] = next;
+          patchCardDetails(index);
+        }
+      } catch {
+        if (drafts[index] === before) drafts[index] = { ...before, detailed: true };
+      }
+      done += 1;
+      setProgress(done, total, `details · ${done} of ${total}`);
+    }
+  };
+
+  await Promise.all(Array.from({ length: Math.min(REFRESH_WORKERS, total) }, worker));
+  if (token !== enrichToken) return;
+  enriching = false;
+  hideProgress();
+  syncReviewStatus();
+}
+
+function cancelEnrichment() {
+  enrichToken += 1;
+  enriching = false;
 }
 
 async function refreshOne(index) {
@@ -383,29 +474,69 @@ async function refreshOne(index) {
   if (!draft || refreshing) return;
   setCardNote(index, 'Looking this one up…');
   try {
-    drafts[index] = await refreshDraft(draft);
+    const matched = await matchDraft(draft);
+    drafts[index] = matched.detailed ? matched : await detailDraft(matched);
   } catch {
     drafts[index] = { ...draft, note: 'Lookup failed — kept the data from your CSV.' };
   }
+  if (Boolean(drafts[index].ambiguous) !== Boolean(draft.ambiguous)) {
+    renderList();
+    revealRow(index);
+    return;
+  }
   replaceCard(index);
+}
+
+/** Apply the edition the reader picked, then let the row settle back into place. */
+async function chooseCandidate(index, which) {
+  const draft = drafts[index];
+  const hit = draft?.candidates?.[which];
+  if (!hit) return;
+  drafts[index] = {
+    ...applyLookup(draft, hitToBook(hit)),
+    ambiguous: false,
+    candidates: [],
+    original: null,
+    detailed: false,
+    note: 'Edition chosen.',
+  };
+  renderList();
+  revealRow(index);
+  const chosen = drafts[index];
+  try {
+    const full = await detailDraft(chosen);
+    if (drafts[index] === chosen && !chosen.edited) {
+      drafts[index] = full;
+      patchCardDetails(index);
+    }
+  } catch {
+    // The listing we already applied is enough; details can be fetched again by hand.
+  }
+}
+
+/** None of the matches fit: put the spreadsheet's own values back. */
+function keepCsvRow(index) {
+  const draft = drafts[index];
+  if (!draft) return;
+  drafts[index] = {
+    ...(draft.original || draft),
+    ambiguous: false,
+    candidates: [],
+    original: null,
+    detailed: true,
+    refreshed: false,
+    note: 'Kept your CSV row.',
+  };
+  renderList();
+  revealRow(index);
 }
 
 /* ── Review interactions ── */
 
 function updateField(index, field, value) {
-  const draft = drafts[index];
-  if (!draft) return;
-  if (field === 'year') {
-    draft.year = yearFrom(value);
-  } else if (field === 'author') {
-    draft.author = value;
-    draft.authors = splitAuthors(value);
-  } else if (field === 'format') {
-    draft.format = value;
-    draft.isDigital = value === 'ebook';
-  } else {
-    draft[field] = value;
-  }
+  const draft = applyFieldEdit(drafts[index], field, value);
+  // Once a row is touched by hand, background detail passes leave it alone.
+  if (draft) draft.edited = true;
 }
 
 function selectCover(index, url) {
@@ -426,8 +557,7 @@ async function uploadCoverFor(index, file) {
   setCardNote(index, 'Preparing the cover…');
   try {
     const url = await makeCoverUrl(config, file, draft.title || `row-${index + 1}`);
-    draft.covers = [{ url, source: 'upload' }, ...draft.covers.filter((item) => item.url !== url)];
-    draft.coverUrl = url;
+    drafts[index] = withUploadedCover(drafts[index], url);
     setCardNote(index, 'Cover ready — it saves with the book.');
     replaceCardCover(index);
   } catch (err) {
@@ -462,6 +592,7 @@ async function existingIndex() {
 async function commitBatch() {
   if (committing || !drafts.length) return;
   committing = true;
+  cancelEnrichment();
   if (commitBtn) {
     commitBtn.disabled = true;
     commitBtn.textContent = 'Checking the catalogue…';
@@ -531,7 +662,7 @@ function showDone({ added, duplicates, failed }) {
     doneSummary.innerHTML = `
       <h2>${added ? 'Intake complete' : 'Nothing new to add'}</h2>
       <p class="lede intake-copy">${escapeHtml(lines.join(' '))}</p>
-      ${errors.length ? `<p class="csv-note">${escapeHtml(errors.join(' · '))}</p>` : ''}
+      ${errors.length ? `<p class="intake-note">${escapeHtml(errors.join(' · '))}</p>` : ''}
     `;
   }
   drafts = [];
@@ -539,10 +670,12 @@ function showDone({ added, duplicates, failed }) {
 }
 
 function resetPanel() {
+  cancelEnrichment();
   drafts = [];
   shown = PAGE_SIZE;
   fileName = '';
   parseNote = '';
+  refreshNote = '';
   stopRequested = false;
   committing = false;
   if (fileInput) fileInput.value = '';
@@ -574,8 +707,8 @@ dropZone?.addEventListener('drop', (e) => {
 keepBtn?.addEventListener('click', () => {
   setStage('review');
   hideProgress();
+  refreshNote = 'data kept exactly as the CSV had it';
   renderList();
-  if (reviewStatus) reviewStatus.textContent = `${drafts.length} book${drafts.length === 1 ? '' : 's'} ready from ${fileName} — data kept exactly as the CSV had it.`;
 });
 
 refreshBtn?.addEventListener('click', () => {
@@ -615,15 +748,25 @@ listEl?.addEventListener('click', (e) => {
     selectCover(Number(cover.dataset.row), cover.dataset.coverUrl);
     return;
   }
-  const pick = e.target.closest('[data-csv-cover]');
+  const pick = e.target.closest('[data-cover-pick]');
   if (pick) {
-    coverTarget = Number(pick.dataset.csvCover);
+    coverTarget = Number(pick.dataset.coverPick);
     coverInput.click();
     return;
   }
   const again = e.target.closest('[data-csv-refresh]');
   if (again) {
     refreshOne(Number(again.dataset.csvRefresh));
+    return;
+  }
+  const choose = e.target.closest('[data-csv-choose]');
+  if (choose) {
+    chooseCandidate(Number(choose.dataset.csvChoose), Number(choose.dataset.candidate));
+    return;
+  }
+  const keep = e.target.closest('[data-csv-keep]');
+  if (keep) {
+    keepCsvRow(Number(keep.dataset.csvKeep));
     return;
   }
   const remove = e.target.closest('[data-csv-remove]');

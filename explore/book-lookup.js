@@ -2,10 +2,14 @@
  * ISBN metadata via the book-search proxy. UI never talks to Google Books / Open Library directly.
  */
 import config from './config.js';
+import { budgetedSignal } from './net.js';
 import { normalizeIsbn } from './isbn.js';
 
+const REQUEST_TIMEOUT_MS = 15000;
 const CACHE_TTL_MS = 10 * 60 * 1000;
 const cache = new Map();
+/** ISBN → in-flight request, so parallel callers share one round-trip. */
+const inflight = new Map();
 
 function cacheGet(isbn13) {
   const hit = cache.get(isbn13);
@@ -36,7 +40,11 @@ function cacheGet(isbn13) {
  * }} LookupBook
  */
 
-export async function lookupIsbn(raw) {
+/**
+ * @param {string} raw
+ * @param {{ timeoutMs?: number, tries?: number }} [opts]
+ */
+export async function lookupIsbn(raw, opts = {}) {
   const normalized = normalizeIsbn(raw);
   if (!normalized) {
     return { kind: 'invalid', book: null, errors: {} };
@@ -44,6 +52,15 @@ export async function lookupIsbn(raw) {
   const cached = cacheGet(normalized.canonical);
   if (cached) return cached;
 
+  // A batch can ask for the same edition from several rows at once; one request serves all.
+  const pending = inflight.get(normalized.canonical);
+  if (pending) return pending;
+  const run = fetchIsbn(normalized, opts).finally(() => inflight.delete(normalized.canonical));
+  inflight.set(normalized.canonical, run);
+  return run;
+}
+
+async function fetchIsbn(normalized, opts) {
   if (typeof navigator !== 'undefined' && navigator.onLine === false) {
     return { kind: 'network', book: null, errors: { network: 'Network unavailable' }, isbn: normalized };
   }
@@ -54,17 +71,39 @@ export async function lookupIsbn(raw) {
     return { kind: 'error', book: null, errors: { proxy: 'Book search proxy is not configured.' }, isbn: normalized };
   }
 
-  let res;
-  try {
-    res = await fetch(`${url}?isbn=${encodeURIComponent(normalized.canonical)}`, {
-      headers: {
-        apikey: key,
-        Authorization: `Bearer ${key}`,
-        Accept: 'application/json',
-      },
-    });
-  } catch {
-    return { kind: 'network', book: null, errors: { network: 'Network unavailable' }, isbn: normalized };
+  const timeoutMs = Number(opts.timeoutMs) || REQUEST_TIMEOUT_MS;
+  const tries = Math.max(1, Number(opts.tries) || 1);
+  let res = null;
+  let timedOut = false;
+  // A stalled query is worth asking again; a refused one is not.
+  for (let attempt = 0; attempt < tries && !res; attempt += 1) {
+    const budget = budgetedSignal(undefined, timeoutMs);
+    try {
+      res = await fetch(`${url}?isbn=${encodeURIComponent(normalized.canonical)}`, {
+        signal: budget.signal,
+        headers: {
+          apikey: key,
+          Authorization: `Bearer ${key}`,
+          Accept: 'application/json',
+        },
+      });
+    } catch {
+      if (!budget.timedOut) {
+        return { kind: 'network', book: null, errors: { network: 'Network unavailable' }, isbn: normalized };
+      }
+      timedOut = true;
+    } finally {
+      budget.release();
+    }
+  }
+  if (!res) {
+    return {
+      kind: 'network',
+      book: null,
+      timedOut,
+      errors: { network: `Lookup timed out after ${Math.round(timeoutMs / 1000)}s.` },
+      isbn: normalized,
+    };
   }
 
   const data = await res.json().catch(() => ({}));
