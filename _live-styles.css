@@ -8,13 +8,6 @@
   --wood-deep: #271b1d;
   --wood: #5a3429;
   --wood-light: #a26443;
-  --wood-tex: url('./assets/wood-walnut.png');
-  /* Stylized palette ramp — grain only modulates these, never recolors them. */
-  --wood-lit: #6b4030;
-  --wood-shade: #43261e;
-  --wood-cavity: #33201a;
-  --wood-line: #241413;
-  --wood-sheen: rgba(242, 210, 150, 0.28);
   --wall: #2e2220;
   --wall-panel: #3a2a28;
   --ember: #e4a557;
@@ -35,10 +28,6 @@ body {
   min-width: 320px;
   min-height: 100%;
   height: 100%;
-  background-color: #1a1210;
-  color-scheme: dark;
-  -webkit-text-size-adjust: 100%;
-  text-size-adjust: 100%;
 }
 
 body {
@@ -48,28 +37,11 @@ body {
   overflow: hidden;
   touch-action: none;
   cursor: var(--cursor-idle);
-  -webkit-user-select: none;
-  user-select: none;
-  -webkit-touch-callout: none;
 }
 
 button,
 input {
   font: inherit;
-}
-
-input[type='search'],
-input[type='text'],
-input[type='email'],
-textarea {
-  font-size: 16px;
-}
-
-input,
-textarea,
-[contenteditable='true'] {
-  -webkit-user-select: text;
-  user-select: text;
 }
 
 button {
@@ -83,10 +55,6 @@ button {
   --shift-y: 0px;
   --pan-x: 0px;
   --pan-y: 0px;
-  --zoom: 1;
-  --scene-floor-pad: calc(
-    clamp(20px, 6vh, 70px) + env(safe-area-inset-bottom) + var(--keyboard-inset, 0px) + 4.7rem + 10px
-  );
   position: relative;
   min-height: 100dvh;
   overflow: hidden;
@@ -111,13 +79,12 @@ button {
 .scene-viewport {
   position: absolute;
   inset: 0;
-  bottom: var(--scene-floor-pad);
   overflow: hidden;
   touch-action: none;
   cursor: var(--cursor-idle);
   background: #2e2220;
-  perspective: 2100px;
-  perspective-origin: 50% 48%;
+  perspective: 1400px;
+  perspective-origin: 50% 46%;
 }
 
 .scene-viewport:active {
@@ -126,18 +93,16 @@ button {
 
 .scene-camera {
   position: absolute;
-  /* Desktop-or-larger room so perspective matches PC; small screens pan instead of shrinking. */
   left: 50%;
   top: 50%;
+  /* Never smaller than desktop ref — small screens pan instead of shrinking */
   width: max(120%, 1280px);
   height: max(112%, 720px);
   transform-style: preserve-3d;
-  transform-origin: 50% 50%;
   transform: translate3d(calc(-50% + var(--pan-x)), calc(-50% + var(--pan-y)), 0)
-    rotateX(var(--rx)) rotateY(var(--ry)) scale(var(--zoom));
+    rotateX(var(--rx)) rotateY(var(--ry));
   transition: transform 160ms cubic-bezier(0.2, 0.7, 0.3, 1);
   will-change: transform;
-  backface-visibility: hidden;
 }
 
 .world-home.is-panning .scene-camera {
@@ -165,7 +130,7 @@ button {
 /* Back wall — full bleed */
 .px-back {
   inset: -2%;
-  transform: translateZ(-180px) scale(1.1);
+  transform: translateZ(-240px) scale(1.22);
   transform-style: preserve-3d;
   overflow: visible;
   background:
@@ -176,14 +141,6 @@ button {
       var(--wall) 38px 74px
     );
   box-shadow: inset 0 0 0 4px #392529;
-}
-
-.unit-layer,
-.px-shelf,
-.px-shelf *,
-.px-shelf *::before,
-.px-shelf *::after {
-  image-rendering: auto;
 }
 
 .px-arch {
@@ -199,12 +156,12 @@ button {
 
 .unit-layer {
   position: absolute;
-  /* width/height/left/top set in px by syncPlacementPlane() */
-  top: 50%;
-  left: 50%;
+  /* left/top/width/height are set by syncPlacementPlane() */
+  top: 0;
+  left: 0;
   width: 100%;
   height: 100%;
-  transform: translate(-50%, -50%);
+  transform: none;
   transform-style: preserve-3d;
   pointer-events: none;
 }
@@ -217,10 +174,6 @@ button {
 .px-shelf {
   --shelf-d: 80px;
   --frame-edge: 16px;
-  --wood-x: 40%;
-  --frame-left: var(--frame-edge);
-  --frame-right: var(--frame-edge);
-  --frame-bottom: calc(var(--frame-edge) * 2.35);
   position: absolute;
   transform: translateZ(calc(var(--shelf-d) + 28px));
   transform-style: preserve-3d;
@@ -231,13 +184,17 @@ button {
 .px-shelf.is-active-unit .shelf-frame {
   box-shadow:
     inset 0 0 0 3px rgba(195, 127, 70, 0.3),
-    0 0 0 2px rgba(232, 176, 96, 0.55);
+    0 0 0 2px rgba(232, 176, 96, 0.55),
+    0 14px 0 rgba(20, 16, 19, 0.5),
+    0 24px 48px rgba(0, 0, 0, 0.35);
 }
 
 .px-shelf.is-unit-selected .shelf-frame {
   box-shadow:
     inset 0 0 0 3px rgba(195, 127, 70, 0.3),
-    0 0 0 2px rgba(232, 176, 96, 0.95);
+    0 0 0 2px rgba(232, 176, 96, 0.95),
+    0 14px 0 rgba(20, 16, 19, 0.5),
+    0 24px 48px rgba(0, 0, 0, 0.35);
 }
 
 /* Screen-space selection overlay — tracks getBoundingClientRect of the case */
@@ -350,96 +307,54 @@ button {
   position: absolute;
   inset: 0;
   transform-style: preserve-3d;
-  border: 0;
-  padding: var(--frame-edge) var(--frame-right) var(--frame-bottom) var(--frame-left);
+  border-style: solid;
+  border-color: #3e2a26;
+  border-width: var(--frame-edge);
+  border-bottom-width: calc(var(--frame-edge) * 1.375);
   background: transparent;
+  box-shadow:
+    inset 0 0 0 3px rgba(195, 127, 70, 0.3),
+    0 14px 0 rgba(20, 16, 19, 0.5),
+    0 24px 48px rgba(0, 0, 0, 0.35);
   cursor: var(--cursor-active);
-}
-
-.shelf-frame::before {
-  position: absolute;
-  inset: 0;
-  padding: inherit;
-  pointer-events: none;
-  content: '';
-  background-color: var(--wood);
-  background-image:
-    linear-gradient(180deg, var(--wood-sheen) 0 3px, transparent 3px),
-    linear-gradient(0deg, rgba(36, 20, 19, 0.55) 0 4px, transparent 4px),
-    linear-gradient(90deg, rgba(242, 210, 150, 0.1) 0 2px, transparent 2px),
-    linear-gradient(270deg, rgba(36, 20, 19, 0.42) 0 3px, transparent 3px),
-    var(--wood-tex);
-  background-size: auto, auto, auto, auto, 190px auto;
-  background-position: 0 0, 0 0, 0 0, 0 0, var(--wood-x, 40%) 0;
-  background-repeat: no-repeat, no-repeat, no-repeat, no-repeat, repeat;
-  background-blend-mode: normal, normal, normal, normal, overlay;
-  box-shadow: inset 0 0 0 1px var(--wood-line);
-  -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
-  -webkit-mask-composite: xor;
-  mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
-  mask-composite: exclude;
-}
-
-.px-shelf.is-bay-join-e {
-  --frame-right: calc(var(--frame-edge) * 0.55);
-}
-
-.px-shelf.is-bay-join-w {
-  --frame-left: calc(var(--frame-edge) * 0.55);
 }
 
 .shelf-box {
   position: absolute;
-  top: var(--frame-edge);
-  right: var(--frame-right);
-  bottom: var(--frame-bottom);
-  left: var(--frame-left);
+  inset: 0;
   transform-style: preserve-3d;
 }
 
 .shelf-face {
   position: absolute;
-  image-rendering: auto;
+  image-rendering: pixelated;
 }
 
-/* Inner back wall — deep cavity, warm wood still visible */
+/* Inner back wall — holds the books */
 .shelf-back {
   inset: 0;
   transform: translateZ(calc(var(--shelf-d) * -1));
-  background-color: var(--wood-cavity);
-  background-image:
-    linear-gradient(90deg, rgba(23, 12, 10, 0.5) 0 6px, transparent 6px),
-    linear-gradient(270deg, rgba(23, 12, 10, 0.5) 0 6px, transparent 6px),
-    linear-gradient(180deg, rgba(23, 12, 10, 0.45) 0 8px, transparent 8px),
-    var(--wood-tex);
-  background-size: auto, auto, auto, 170% auto;
-  background-position: 0 0, 0 0, 0 0, var(--wood-x, 40%) 0;
-  background-repeat: no-repeat;
-  background-blend-mode: normal, normal, normal, soft-light;
-  box-shadow: inset 0 0 0 1px rgba(23, 12, 10, 0.6);
+  background:
+    linear-gradient(90deg, rgba(0, 0, 0, 0.4), transparent 12%, transparent 88%, rgba(0, 0, 0, 0.35)),
+    linear-gradient(180deg, rgba(0, 0, 0, 0.3), transparent 14%),
+    #221816;
+  box-shadow: inset 0 0 0 2px rgba(50, 34, 30, 0.9);
   overflow: hidden;
   backface-visibility: hidden;
   pointer-events: none;
 }
 
-/* Left inner wall — lit at the front edge, falling into shadow */
+/* Left inner wall */
 .shelf-left {
   top: 0;
   left: 0;
   width: var(--shelf-d);
   height: 100%;
-  overflow: hidden;
   transform-origin: left center;
   transform: rotateY(90deg);
-  background-color: var(--wood-shade);
-  background-image:
-    linear-gradient(90deg, rgba(242, 210, 150, 0.12), rgba(242, 210, 150, 0.12)),
-    var(--wood-tex);
-  background-size: auto, auto 130%;
-  background-position: 0 0, calc(var(--wood-x, 40%) + 12%) 0;
-  background-repeat: no-repeat;
-  background-blend-mode: normal, soft-light;
-  box-shadow: inset -2px 0 0 rgba(242, 210, 150, 0.18);
+  background:
+    linear-gradient(90deg, #7a503c 0%, #5a3a2e 30%, #3a2620 65%, #241816 100%);
+  box-shadow: inset -2px 0 0 rgba(195, 127, 70, 0.28);
   backface-visibility: hidden;
 }
 
@@ -449,53 +364,15 @@ button {
   right: 0;
   width: var(--shelf-d);
   height: 100%;
-  overflow: hidden;
   transform-origin: right center;
   transform: rotateY(-90deg);
-  background-color: var(--wood-cavity);
-  background-image:
-    linear-gradient(270deg, rgba(23, 12, 10, 0.22), rgba(23, 12, 10, 0.22)),
-    var(--wood-tex);
-  background-size: auto, auto 130%;
-  background-position: 0 0, calc(var(--wood-x, 40%) - 18%) 0;
-  background-repeat: no-repeat;
-  background-blend-mode: normal, soft-light;
-  box-shadow: inset 2px 0 0 rgba(23, 12, 10, 0.55);
+  background:
+    linear-gradient(270deg, #6a4434 0%, #4a3028 30%, #2e1e1a 65%, #1a1210 100%);
+  box-shadow: inset 2px 0 0 rgba(0, 0, 0, 0.4);
   backface-visibility: hidden;
 }
 
-/* Top / bottom — grain along the case, polished bevel */
-.shelf-top,
-.shelf-bottom {
-  overflow: hidden;
-  background-color: var(--wood-lit);
-  backface-visibility: hidden;
-  isolation: isolate;
-}
-
-.shelf-top::before,
-.shelf-bottom::before {
-  position: absolute;
-  left: 50%;
-  top: 50%;
-  width: 420%;
-  height: 420%;
-  content: '';
-  background: var(--wood-tex) var(--wood-x, 40%) 50% / 200px auto;
-  transform: translate(-50%, -50%) rotate(90deg);
-  pointer-events: none;
-  mix-blend-mode: overlay;
-  opacity: 0.85;
-}
-
-.shelf-top::after,
-.shelf-bottom::after {
-  position: absolute;
-  inset: 0;
-  content: '';
-  pointer-events: none;
-}
-
+/* Top inner wall */
 .shelf-top {
   top: 0;
   left: 0;
@@ -503,13 +380,13 @@ button {
   height: var(--shelf-d);
   transform-origin: center top;
   transform: rotateX(-90deg);
-  box-shadow: inset 0 -2px 0 rgba(242, 210, 150, 0.18);
+  background:
+    linear-gradient(180deg, #8a5a44 0%, #5a3a2e 40%, #2e1e1a 100%);
+  box-shadow: inset 0 -2px 0 rgba(195, 127, 70, 0.28);
+  backface-visibility: hidden;
 }
 
-.shelf-top::after {
-  background: linear-gradient(180deg, var(--wood-sheen) 0 2px, transparent 2px 60%, rgba(36, 20, 19, 0.35) 60%);
-}
-
+/* Bottom inner wall / floor of case */
 .shelf-bottom {
   bottom: 0;
   left: 0;
@@ -517,11 +394,10 @@ button {
   height: var(--shelf-d);
   transform-origin: center bottom;
   transform: rotateX(90deg);
-  box-shadow: inset 0 3px 0 rgba(23, 12, 10, 0.5);
-}
-
-.shelf-bottom::after {
-  background: linear-gradient(0deg, rgba(23, 12, 10, 0.45) 0 55%, rgba(23, 12, 10, 0.25) 55%);
+  background:
+    linear-gradient(0deg, #6a4434 0%, #4a3028 45%, #1e1412 100%);
+  box-shadow: inset 0 2px 0 rgba(0, 0, 0, 0.45);
+  backface-visibility: hidden;
 }
 
 /* Floor */
@@ -625,37 +501,14 @@ button {
 .shelf-plank {
   position: relative;
   z-index: 3;
-  flex: 0 0 13px;
+  flex: 0 0 11px;
   width: 100%;
-  overflow: hidden;
-  background: var(--wood);
-  isolation: isolate;
+  background:
+    linear-gradient(180deg, #c8945b 0 14%, #794a37 14% 72%, #5a3429 72%);
   box-shadow:
-    0 3px 0 rgba(23, 12, 10, 0.4),
-    inset 0 2px 0 var(--wood-sheen),
-    inset 0 -3px 0 rgba(36, 20, 19, 0.55);
-}
-
-.shelf-plank::before {
-  position: absolute;
-  left: 50%;
-  top: 50%;
-  width: 420%;
-  height: 420%;
-  content: '';
-  background: var(--wood-tex) var(--wood-x, 40%) 50% / 180px auto;
-  transform: translate(-50%, -50%) rotate(90deg);
-  pointer-events: none;
-  mix-blend-mode: overlay;
-  opacity: 0.8;
-}
-
-.shelf-plank::after {
-  position: absolute;
-  inset: 0;
-  content: '';
-  pointer-events: none;
-  background: linear-gradient(180deg, rgba(242, 210, 150, 0.16) 0 40%, rgba(36, 20, 19, 0.32) 40%);
+    0 3px 0 #2c1d20,
+    inset 0 1px 0 rgba(242, 210, 150, 0.35),
+    inset 0 -2px 0 rgba(40, 24, 22, 0.45);
 }
 
 .is-editing .shelf-plank.is-draggable {
@@ -960,8 +813,6 @@ button {
   height: 4px;
   background: #edc877;
   opacity: 0.45;
-  border-radius: 50%;
-  box-shadow: 0 0 6px 1px rgba(237, 200, 119, 0.55);
   animation: drift 8s linear infinite;
 }
 
@@ -988,52 +839,6 @@ button {
   animation-delay: -6s;
   width: 3px;
   height: 3px;
-}
-.mote:nth-child(5) {
-  left: 39%;
-  top: 44%;
-  animation-delay: -3.2s;
-  width: 3px;
-  height: 3px;
-  opacity: 0.32;
-}
-.mote:nth-child(6) {
-  left: 51%;
-  top: 61%;
-  animation-delay: -7.4s;
-  animation-duration: 11s;
-  opacity: 0.28;
-}
-.mote:nth-child(7) {
-  left: 45%;
-  top: 36%;
-  animation-delay: -4.6s;
-  width: 2px;
-  height: 2px;
-  opacity: 0.35;
-}
-.mote:nth-child(8) {
-  left: 55%;
-  top: 48%;
-  animation-delay: -1.8s;
-  animation-duration: 10s;
-  opacity: 0.3;
-}
-
-.case-motes {
-  position: absolute;
-  inset: 0;
-  z-index: 0;
-  overflow: hidden;
-  pointer-events: none;
-}
-
-.mote--case {
-  width: 2px;
-  height: 2px;
-  opacity: 0.2;
-  box-shadow: 0 0 5px 1px rgba(237, 200, 119, 0.38);
-  animation-duration: 12s;
 }
 
 /* ── Floating HUD ── */
@@ -1113,7 +918,7 @@ button {
   position: absolute;
   z-index: 25;
   right: clamp(15px, 8vw, 140px);
-  bottom: calc(clamp(20px, 6vh, 70px) + env(safe-area-inset-bottom) + var(--keyboard-inset, 0px));
+  bottom: clamp(20px, 6vh, 70px);
   left: clamp(15px, 8vw, 140px);
   display: flex;
   flex-direction: column;
@@ -1121,7 +926,6 @@ button {
   max-width: 980px;
   margin: auto;
   pointer-events: none;
-  touch-action: manipulation;
 }
 
 .search-shell > * {
@@ -1129,14 +933,12 @@ button {
 }
 
 .search-results {
-  max-height: min(42vh, calc(100dvh - 160px - var(--keyboard-inset, 0px)), 360px);
+  max-height: min(42vh, 360px);
   overflow: auto;
   padding: 14px 16px 12px;
   background: rgba(35, 27, 28, 0.94);
   border: 2px solid rgba(215, 157, 87, 0.56);
   box-shadow: 0 11px 0 rgba(25, 18, 21, 0.46), 0 18px 42px rgba(11, 16, 19, 0.36);
-  -webkit-user-select: text;
-  user-select: text;
 }
 
 .search-results[hidden] {
@@ -1225,7 +1027,6 @@ button {
   background: rgba(35, 27, 28, 0.86);
   border: 2px solid rgba(215, 157, 87, 0.56);
   box-shadow: 0 11px 0 rgba(25, 18, 21, 0.46), 0 18px 42px rgba(11, 16, 19, 0.36);
-  touch-action: manipulation;
 }
 
 .search-dock input {
@@ -1237,7 +1038,7 @@ button {
   background: transparent;
   border: 0;
   outline: 0;
-  font: 16px / 1.2 var(--font-pixel);
+  font: 13px var(--font-pixel);
   cursor: text;
 }
 
@@ -1247,18 +1048,15 @@ button {
 
 .search-icon {
   position: absolute;
-  left: 18px;
-  top: 6px;
-  width: 18px;
-  height: 50px;
-  transform: none;
+  left: 21px;
+  top: 50%;
+  transform: translateY(-50%);
   color: #dca460;
   pointer-events: none;
 }
 
 .dock-button,
 .explore-button {
-  position: relative;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -1266,7 +1064,6 @@ button {
   align-self: stretch;
   min-width: 118px;
   padding: 0 17px;
-  overflow: hidden;
   color: #322021;
   background: #d89e59;
   border: 0;
@@ -1279,12 +1076,10 @@ button {
   transition: filter 0.18s, transform 0.18s;
 }
 
-@media (hover: hover) {
-  .dock-button:hover,
-  .explore-button:hover {
-    filter: brightness(1.1);
-    transform: translateY(-2px);
-  }
+.dock-button:hover,
+.explore-button:hover {
+  filter: brightness(1.1);
+  transform: translateY(-2px);
 }
 
 .explore-button {
@@ -1313,51 +1108,6 @@ button {
   }
 }
 
-.ember-btn {
-  position: relative;
-  overflow: hidden;
-}
-
-.btn-motes {
-  position: absolute;
-  inset: 0;
-  overflow: hidden;
-  pointer-events: none;
-}
-
-.btn-motes i {
-  position: absolute;
-  width: 5px;
-  height: 5px;
-  border-radius: 50%;
-  background: #f7e7b4;
-  box-shadow: 0 0 12px 4px rgba(237, 200, 119, 0.95);
-  opacity: 0;
-  animation: btn-drift 2.6s ease-in infinite;
-}
-
-.btn-motes i:nth-child(1) { left: 10%; top: 72%; animation-delay: 0s; }
-.btn-motes i:nth-child(2) { left: 28%; top: 84%; animation-delay: -0.5s; width: 4px; height: 4px; }
-.btn-motes i:nth-child(3) { left: 46%; top: 66%; animation-delay: -1s; }
-.btn-motes i:nth-child(4) { left: 62%; top: 80%; animation-delay: -1.5s; width: 3px; height: 3px; }
-.btn-motes i:nth-child(5) { left: 76%; top: 58%; animation-delay: -2s; width: 4px; height: 4px; }
-.btn-motes i:nth-child(6) { left: 88%; top: 74%; animation-delay: -2.4s; width: 6px; height: 6px; }
-.btn-motes i:nth-child(7) { left: 18%; top: 54%; animation-delay: -1.8s; width: 3px; height: 3px; }
-
-@keyframes btn-drift {
-  0% {
-    opacity: 0;
-    transform: translate(0, 8px) scale(0.6);
-  }
-  18% {
-    opacity: 0.95;
-  }
-  100% {
-    opacity: 0;
-    transform: translate(-10px, -28px) scale(1.15);
-  }
-}
-
 @media (prefers-reduced-motion: reduce) {
   .scene-camera {
     transition: none;
@@ -1367,14 +1117,10 @@ button {
   *::after {
     animation-duration: 0.01ms !important;
   }
-  .mote,
-  .btn-motes {
-    display: none;
-  }
 }
 
 @media (max-width: 700px) {
-  /* Portrait zoom is fitted in JS so the 3-bay case stays on screen. */
+  /* Bookshelf stays at desktop scale — pan to explore (no shrink). */
 
   .edit-panel {
     top: auto;
@@ -1386,53 +1132,35 @@ button {
 
   .search-shell {
     right: 12px;
-    bottom: calc(max(12px, env(safe-area-inset-bottom)) + var(--keyboard-inset, 0px));
+    bottom: 15px;
     left: 12px;
-  }
-
-  .world-home {
-    --scene-floor-pad: calc(
-      max(12px, env(safe-area-inset-bottom)) + var(--keyboard-inset, 0px) + 6.6rem + 10px
-    );
   }
 
   .search-bar {
     flex-wrap: wrap;
   }
 
-  .search-results {
-    max-height: min(38dvh, calc(100dvh - 140px - var(--keyboard-inset, 0px)));
-  }
-
-  .search-results-close {
-    min-width: 44px;
-    min-height: 44px;
-    padding: 8px 12px;
-  }
-
   .search-dock input {
-    height: 48px;
-    padding-left: 40px;
-    font-size: 16px;
+    height: 44px;
+    padding-left: 35px;
+    font-size: 10px;
   }
 
   .search-icon {
     left: 16px;
-    width: 18px;
-    height: 48px;
+    width: 15px;
   }
 
   .dock-button,
   .explore-button {
     min-width: 96px;
-    min-height: 48px;
-    padding: 0 12px;
-    font-size: 10px;
+    padding: 0 9px;
+    font-size: 9px;
   }
 
   .explore-button {
     flex: 1 1 100%;
-    min-height: 44px;
+    min-height: 42px;
   }
 
   .wordmark-title {
