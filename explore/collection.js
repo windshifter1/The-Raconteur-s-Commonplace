@@ -72,6 +72,18 @@ export function findLocalByIsbn(normalized) {
   return null;
 }
 
+/** Drop the local intake cache entry so a deleted title can be scanned in again. */
+export function forgetLocalByIsbn(isbn) {
+  const normalized = normalizeIsbn(isbn);
+  if (!normalized) return;
+  const rows = readLocal().filter((row) => !(
+    matchesIsbn(row.isbn, normalized)
+    || matchesIsbn(row.isbn13, normalized)
+    || matchesIsbn(row.isbn10, normalized)
+  ));
+  writeLocal(rows);
+}
+
 function cacheLocal(record) {
   const rows = readLocal().filter((row) => {
     const n = normalizeIsbn(row.isbn13 || row.isbn);

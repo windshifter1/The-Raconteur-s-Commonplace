@@ -91,8 +91,8 @@
           <article class="feature-tile">
             <p class="tile-kicker">Catalogue</p>
             <h2>Edit books</h2>
-            <p>Correct metadata, genres, availability, and notes in place.</p>
-            <button type="button" class="ghost-cta" disabled>Browse to edit</button>
+            <p>Flip the full catalogue into edit mode — swap covers, remove titles, more to come.</p>
+            <button type="button" class="ghost-cta" id="btn-open-catalogue-edit">Open edit mode</button>
           </article>
 
           <article class="feature-tile feature-tile--accent">
@@ -215,9 +215,22 @@
             </button>
             <div class="catalogue-panel" id="catalogue-sort-panel" role="group" aria-label="Sort the catalogue" hidden></div>
           </div>
+          <button type="button" class="intake-method catalogue-trigger catalogue-edit" id="catalogue-edit" aria-pressed="false">
+            Edit
+          </button>
+        </div>
+
+        <div class="catalogue-edit-note" id="catalogue-edit-note" hidden>
+          <p>Edit mode — covers and removals save straight to the catalogue.</p>
+          <div class="catalogue-actions">
+            <button type="button" class="catalogue-action" disabled>Bulk edit<span class="catalogue-soon">soon</span></button>
+            <button type="button" class="catalogue-action" disabled>Merge duplicates<span class="catalogue-soon">soon</span></button>
+            <button type="button" class="catalogue-action" disabled>Export CSV<span class="catalogue-soon">soon</span></button>
+          </div>
         </div>
 
         <p class="search-results-status" id="catalogue-status">Reading the catalogue…</p>
+        <p class="catalogue-alert" id="catalogue-alert" role="status" hidden></p>
         <div class="catalogue-chips" id="catalogue-chips" hidden></div>
         <ul class="search-results-list" id="catalogue-list"></ul>
         <div class="catalogue-more-wrap" id="catalogue-more-wrap" hidden>

@@ -4,11 +4,16 @@
  * search reads, so nothing here needs its own copy of the data.
  */
 import config from './config.js';
-import { loadAccountCatalogue } from '../lib/account-catalogue.js';
+import { booksUrl, loadAccountCatalogue, restHeaders } from '../lib/account-catalogue.js';
+import { forgetLocalByIsbn } from './collection.js';
 
 const overlay = document.getElementById('catalogue-overlay');
 const openBtn = document.getElementById('btn-open-catalogue');
+const openEditBtn = document.getElementById('btn-open-catalogue-edit');
 const closeBtn = document.getElementById('catalogue-close');
+const editBtn = document.getElementById('catalogue-edit');
+const editNote = document.getElementById('catalogue-edit-note');
+const alertEl = document.getElementById('catalogue-alert');
 const statusEl = document.getElementById('catalogue-status');
 const listEl = document.getElementById('catalogue-list');
 const chipsEl = document.getElementById('catalogue-chips');
@@ -28,6 +33,11 @@ const PAGE_SIZE = 60;
 /** Long facets stay usable by capping the rendered rows; the find box narrows them. */
 const VALUE_CAP = 60;
 const FIND_THRESHOLD = 12;
+/** Covers land in the public media bucket, downscaled to a jacket-sized JPEG. */
+const COVER_BUCKET = 'library-media';
+const COVER_EDGE = 640;
+const COVER_QUALITY = 0.82;
+const MAX_UPLOAD_BYTES = 12 * 1024 * 1024;
 const collator = new Intl.Collator(undefined, { sensitivity: 'base', numeric: true });
 
 /** @type {object[] | null} */
@@ -39,6 +49,11 @@ let sortId = 'title-asc';
 let openPanel = '';
 let activeFacet = 'author';
 let valueQuery = '';
+let editing = false;
+/** Row id awaiting delete confirmation. */
+let confirmingId = '';
+/** Row ids with a save in flight. */
+const pending = new Set();
 /** @type {Map<string, Set<string>>} facet id → chosen values */
 const chosen = new Map();
 
@@ -52,6 +67,11 @@ function escapeHtml(value) {
 
 function text(value) {
   return String(value ?? '').trim();
+}
+
+/** Ids round-trip through data attributes as strings, so compare them as strings. */
+function rowId(book) {
+  return book?.id === null || book?.id === undefined ? '' : String(book.id);
 }
 
 /** Author columns hold a joined string; split so each person is its own facet value. */
@@ -186,11 +206,54 @@ function setStatus(message) {
   if (statusEl) statusEl.textContent = message;
 }
 
+/** Action feedback lives apart from the count line so a re-render cannot wipe it. */
+function setAlert(message, kind = 'note') {
+  if (!alertEl) return;
+  if (!message) {
+    alertEl.hidden = true;
+    alertEl.textContent = '';
+    alertEl.classList.remove('is-error');
+    return;
+  }
+  alertEl.classList.toggle('is-error', kind === 'error');
+  // Reveal before writing so the live region actually announces the change.
+  alertEl.hidden = false;
+  alertEl.textContent = message;
+}
+
 function metaLine(book) {
   const genres = Array.isArray(book.genres) ? book.genres.slice(0, 3).join(' · ') : '';
   return [seriesOf(book)[0], book.year, book.format, book.availability, genres]
     .filter(Boolean)
     .join(' · ');
+}
+
+/** Visual-only controls, marked so nobody expects them to save anything yet. */
+const SOON_ACTIONS = ['Edit details', 'Genres', 'Availability', 'Set shelf', 'Notes'];
+
+function actionsHtml(book) {
+  const id = rowId(book);
+  if (!id) {
+    return '<p class="catalogue-note">This row has no catalogue id, so it cannot be edited here.</p>';
+  }
+  if (pending.has(id)) {
+    return '<p class="catalogue-note">Saving…</p>';
+  }
+  if (confirmingId === id) {
+    return `<p class="catalogue-confirm">Delete “${escapeHtml(text(book.title) || 'Untitled')}” from the catalogue? This cannot be undone.</p>
+      <div class="catalogue-actions">
+        <button type="button" class="catalogue-danger" data-confirm-delete="${escapeHtml(id)}">Yes, delete it</button>
+        <button type="button" class="catalogue-action" data-cancel-delete="${escapeHtml(id)}">Keep it</button>
+      </div>`;
+  }
+  const soon = SOON_ACTIONS
+    .map((label) => `<button type="button" class="catalogue-action" disabled>${escapeHtml(label)}<span class="catalogue-soon">soon</span></button>`)
+    .join('');
+  return `<div class="catalogue-actions">
+      <button type="button" class="catalogue-action" data-cover-for="${escapeHtml(id)}">Upload cover</button>
+      <button type="button" class="catalogue-action" data-ask-delete="${escapeHtml(id)}">Delete</button>
+      ${soon}
+    </div>`;
 }
 
 function cardHtml(book) {
@@ -204,6 +267,7 @@ function cardHtml(book) {
         <p class="search-result-title">${escapeHtml(text(book.title) || 'Untitled')}</p>
         <p class="search-result-author">${escapeHtml(text(book.author) || 'Unknown author')}</p>
         <p class="search-result-meta">${escapeHtml(metaLine(book) || 'No further details recorded')}</p>
+        ${editing ? actionsHtml(book) : ''}
       </div>
     </li>`;
 }
@@ -372,6 +436,157 @@ function toggleValue(facetId, value) {
   else chosen.delete(facetId);
 }
 
+function writeUrl(id) {
+  const url = booksUrl(config);
+  if (!url || !config?.supabaseAnonKey) throw new Error('Catalogue is not configured.');
+  return `${url}?id=eq.${encodeURIComponent(id)}`;
+}
+
+/**
+ * PostgREST answers a row-level-security refusal with 200 and an empty body,
+ * so an empty representation has to be treated as a failure, not a success.
+ */
+async function writeRow(id, method, body) {
+  const res = await fetch(writeUrl(id), {
+    method,
+    headers: restHeaders(config, {
+      ...(body ? { 'Content-Type': 'application/json' } : {}),
+      Prefer: 'return=representation',
+    }),
+    ...(body ? { body: JSON.stringify(body) } : {}),
+  });
+  if (res.status === 204) return null;
+  const rows = await res.json().catch(() => []);
+  if (!res.ok) {
+    throw new Error(rows?.message || rows?.error || `The catalogue refused the change (${res.status}).`);
+  }
+  if (Array.isArray(rows) && !rows.length) {
+    throw new Error('The catalogue did not apply that change — the account may not have permission.');
+  }
+  return Array.isArray(rows) ? rows[0] : rows;
+}
+
+function readImage(file) {
+  if (typeof createImageBitmap === 'function') return createImageBitmap(file);
+  return new Promise((resolve, reject) => {
+    const url = URL.createObjectURL(file);
+    const img = new Image();
+    img.onload = () => {
+      URL.revokeObjectURL(url);
+      resolve(img);
+    };
+    img.onerror = () => {
+      URL.revokeObjectURL(url);
+      reject(new Error('That image could not be read.'));
+    };
+    img.src = url;
+  });
+}
+
+async function toCoverBlob(file) {
+  const image = await readImage(file);
+  const width = image.width || image.naturalWidth;
+  const height = image.height || image.naturalHeight;
+  if (!width || !height) throw new Error('That image could not be read.');
+  const scale = Math.min(1, COVER_EDGE / Math.max(width, height));
+  const canvas = document.createElement('canvas');
+  canvas.width = Math.max(1, Math.round(width * scale));
+  canvas.height = Math.max(1, Math.round(height * scale));
+  canvas.getContext('2d')?.drawImage(image, 0, 0, canvas.width, canvas.height);
+  image.close?.();
+  return new Promise((resolve, reject) => {
+    canvas.toBlob(
+      (blob) => (blob ? resolve(blob) : reject(new Error('That image could not be prepared.'))),
+      'image/jpeg',
+      COVER_QUALITY,
+    );
+  });
+}
+
+function blobToDataUrl(blob) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result || ''));
+    reader.onerror = () => reject(new Error('That image could not be prepared.'));
+    reader.readAsDataURL(blob);
+  });
+}
+
+/** A fresh filename each time keeps the CDN from serving the previous jacket. */
+async function uploadToBucket(id, blob) {
+  const root = String(config?.supabaseUrl || '').replace(/\/$/, '');
+  if (!root || !config?.supabaseAnonKey) return '';
+  const path = `covers/${encodeURIComponent(id)}-${Date.now()}.jpg`;
+  const res = await fetch(`${root}/storage/v1/object/${COVER_BUCKET}/${path}`, {
+    method: 'POST',
+    headers: restHeaders(config, { 'Content-Type': 'image/jpeg', 'x-upsert': 'true' }),
+    body: blob,
+  });
+  return res.ok ? `${root}/storage/v1/object/public/${COVER_BUCKET}/${path}` : '';
+}
+
+async function uploadCover(id, file) {
+  const book = (books || []).find((row) => rowId(row) === id);
+  if (!book || pending.has(id)) return;
+  if (!file.type.startsWith('image/')) {
+    setAlert('Pick an image file for the cover.', 'error');
+    return;
+  }
+  if (file.size > MAX_UPLOAD_BYTES) {
+    setAlert('That image is too large — try one under 12 MB.', 'error');
+    return;
+  }
+  pending.add(id);
+  setAlert('Preparing the cover…');
+  renderList();
+  try {
+    const blob = await toCoverBlob(file);
+    // Bucket first; if media storage is unavailable the jacket rides along on the row.
+    const cover = (await uploadToBucket(id, blob)) || (await blobToDataUrl(blob));
+    const saved = await writeRow(id, 'PATCH', { cover_url: cover });
+    book.cover_url = saved?.cover_url || cover;
+    setAlert(`New cover saved for “${text(book.title) || 'Untitled'}”.`);
+  } catch (err) {
+    setAlert(err?.message || 'Could not save that cover.', 'error');
+  } finally {
+    pending.delete(id);
+    renderList();
+  }
+}
+
+async function deleteBook(id) {
+  const book = (books || []).find((row) => rowId(row) === id);
+  if (!book || pending.has(id)) return;
+  const title = text(book.title) || 'Untitled';
+  confirmingId = '';
+  pending.add(id);
+  setAlert(`Removing “${title}”…`);
+  renderList();
+  try {
+    await writeRow(id, 'DELETE');
+    books = (books || []).filter((row) => rowId(row) !== id);
+    forgetLocalByIsbn(book.isbn || book.isbn13);
+    setAlert(`Removed “${title}” from the catalogue.`);
+  } catch (err) {
+    setAlert(err?.message || 'Could not delete that title.', 'error');
+  } finally {
+    pending.delete(id);
+    renderChips();
+    renderList();
+    if (openPanel === 'filter') renderFilterPanel();
+  }
+}
+
+function setEditing(on) {
+  editing = Boolean(on);
+  confirmingId = '';
+  editBtn?.setAttribute('aria-pressed', String(editing));
+  if (editBtn) editBtn.textContent = editing ? 'Done editing' : 'Edit';
+  if (editNote) editNote.hidden = !editing;
+  if (!editing) setAlert('');
+  if (books) renderList();
+}
+
 function loadBooks() {
   if (!booksPromise) {
     booksPromise = loadAccountCatalogue(config).then((out) => (Array.isArray(out?.books) ? out.books : []));
@@ -397,11 +612,13 @@ async function ensureBooks() {
   if (openPanel) setPanel(openPanel);
 }
 
-function openCatalogue() {
+function openCatalogue(withEdit = false) {
   if (!overlay) return;
   overlay.hidden = false;
   document.body.classList.add('catalogue-open');
   closePanels();
+  setAlert('');
+  if (withEdit || editing) setEditing(true);
   ensureBooks();
 }
 
@@ -410,17 +627,26 @@ function closeCatalogue() {
   overlay.hidden = true;
   document.body.classList.remove('catalogue-open');
   closePanels();
+  confirmingId = '';
 }
 
-openBtn?.addEventListener('click', openCatalogue);
+openBtn?.addEventListener('click', () => openCatalogue(false));
+openEditBtn?.addEventListener('click', () => openCatalogue(true));
 closeBtn?.addEventListener('click', closeCatalogue);
+editBtn?.addEventListener('click', () => {
+  closePanels();
+  setEditing(!editing);
+});
 overlay?.addEventListener('click', (e) => {
   if (e.target === overlay) closeCatalogue();
 });
 document.addEventListener('keydown', (e) => {
   if (e.key !== 'Escape' || !overlay || overlay.hidden) return;
   if (openPanel) closePanels();
-  else closeCatalogue();
+  else if (confirmingId) {
+    confirmingId = '';
+    renderList();
+  } else closeCatalogue();
 });
 
 for (const [key, trigger] of Object.entries(triggers)) {
@@ -488,4 +714,50 @@ chipsEl?.addEventListener('click', (e) => {
 moreBtn?.addEventListener('click', () => {
   shown += PAGE_SIZE;
   renderList();
+});
+
+/** One file picker for the whole list, so row re-renders never lose it. */
+const coverInput = document.createElement('input');
+coverInput.type = 'file';
+coverInput.accept = 'image/*';
+coverInput.hidden = true;
+let coverTargetId = '';
+document.body.appendChild(coverInput);
+
+coverInput.addEventListener('change', () => {
+  const file = coverInput.files?.[0];
+  const id = coverTargetId;
+  coverInput.value = '';
+  coverTargetId = '';
+  if (file && id) uploadCover(id, file);
+});
+
+listEl?.addEventListener('click', (e) => {
+  const pick = e.target.closest('[data-cover-for]');
+  if (pick) {
+    coverTargetId = pick.dataset.coverFor;
+    coverInput.click();
+    return;
+  }
+  const ask = e.target.closest('[data-ask-delete]');
+  if (ask) {
+    confirmingId = ask.dataset.askDelete;
+    setAlert('');
+    renderList();
+    // Land on the safe choice — the button under the cursor has just been replaced.
+    listEl.querySelector('[data-cancel-delete]')?.focus();
+    return;
+  }
+  const cancel = e.target.closest('[data-cancel-delete]');
+  if (cancel) {
+    const back = cancel.dataset.cancelDelete;
+    confirmingId = '';
+    renderList();
+    [...listEl.querySelectorAll('[data-ask-delete]')]
+      .find((btn) => btn.dataset.askDelete === back)
+      ?.focus();
+    return;
+  }
+  const go = e.target.closest('[data-confirm-delete]');
+  if (go) deleteBook(go.dataset.confirmDelete);
 });
